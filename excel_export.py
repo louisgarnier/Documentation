@@ -18,12 +18,13 @@ from datetime import datetime
 import os
 
 
-def create_excel_export(output_path="test_cases_export.xlsx"):
+def create_excel_export(output_path="test_cases_export.xlsx", selected_test_case_ids=None):
     """
     Create an Excel workbook with test case documentation.
     
     Args:
         output_path: Path where the Excel file should be saved
+        selected_test_case_ids: Optional list of test case IDs to export. If None, exports all.
         
     Returns:
         str: Path to the created Excel file
@@ -35,12 +36,16 @@ def create_excel_export(output_path="test_cases_export.xlsx"):
     if 'Sheet' in wb.sheetnames:
         wb.remove(wb['Sheet'])
     
+    # Get test cases (filtered if IDs provided)
+    if selected_test_case_ids:
+        all_test_cases = get_all_test_cases()
+        test_cases = [tc for tc in all_test_cases if tc['id'] in selected_test_case_ids]
+    else:
+        test_cases = get_all_test_cases()
+    
     # Create Summary sheet
     summary_sheet = wb.create_sheet("Summary", 0)
-    create_summary_sheet(summary_sheet)
-    
-    # Get all test cases
-    test_cases = get_all_test_cases()
+    create_summary_sheet(summary_sheet, test_cases)
     
     # Create a sheet for each test case
     for test_case in test_cases:
@@ -64,10 +69,11 @@ def create_excel_export(output_path="test_cases_export.xlsx"):
     return output_path
 
 
-def create_summary_sheet(sheet):
+def create_summary_sheet(sheet, test_cases=None):
     """Create the summary sheet with all test cases matching the reference format."""
-    # Get all test cases
-    test_cases = get_all_test_cases()
+    # Get test cases if not provided
+    if test_cases is None:
+        test_cases = get_all_test_cases()
     
     # Row 2: Title (centered in column B)
     title_cell = sheet.cell(row=2, column=2)

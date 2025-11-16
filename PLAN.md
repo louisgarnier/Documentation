@@ -250,6 +250,26 @@ Streamlit-based web application for creating and managing SimCorp Dimension test
 
 ---
 
+### Step 10.5: Selective Excel Export ⏭️
+**Goal**: Allow users to select which test cases to export
+
+**Tasks**:
+- [ ] Add "Export" column with checkboxes to "All Test Cases" table
+- [ ] Track selected test cases in session state
+- [ ] Modify Excel export function to accept list of test case IDs
+- [ ] Update export button to only export selected test cases
+- [ ] Add "Select All" / "Deselect All" functionality (optional)
+
+**Validation**:
+- [ ] Checkboxes appear in "All Test Cases" table
+- [ ] Can select/deselect individual test cases
+- [ ] Export only includes selected test cases
+- [ ] Excel file contains only selected test cases
+
+**Commit**: `[Frontend] Add selective export with checkboxes for test cases`
+
+---
+
 ### Step 11: UI Polish & Navigation ✅
 **Goal**: Improve user experience
 

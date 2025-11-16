@@ -142,21 +142,34 @@ if page == "All Test Cases" or page == "View Test Cases":  # Support both for ba
     with col_header_title:
         st.header("📊 All Test Cases")
     with col_header_btn1:
+        # Initialize selected test cases if not exists
+        if 'selected_test_cases' not in st.session_state:
+            st.session_state['selected_test_cases'] = []
+        
         # Export button
-        if st.button("📥 Export to Excel", key="export_excel", use_container_width=True):
+        selected_count = len(st.session_state.get('selected_test_cases', []))
+        export_label = f"📥 Export to Excel ({selected_count} selected)" if selected_count > 0 else "📥 Export to Excel"
+        
+        if st.button(export_label, key="export_excel", use_container_width=True, disabled=selected_count == 0):
             try:
-                # Generate Excel file
-                timestamp = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
-                filename = f"test_cases_export_{timestamp}.xlsx"
-                file_path = create_excel_export(filename)
+                # Get selected test case IDs
+                selected_ids = st.session_state.get('selected_test_cases', [])
                 
-                # Read file data and store in session state
-                with open(file_path, "rb") as f:
-                    st.session_state['excel_file_data'] = f.read()
-                    st.session_state['excel_filename'] = filename
-                
-                st.success(f"✅ Excel file generated! Click download button below.")
-                st.rerun()
+                if not selected_ids:
+                    st.warning("⚠️ Please select at least one test case to export.")
+                else:
+                    # Generate Excel file with selected test cases
+                    timestamp = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"test_cases_export_{timestamp}.xlsx"
+                    file_path = create_excel_export(filename, selected_test_case_ids=selected_ids)
+                    
+                    # Read file data and store in session state
+                    with open(file_path, "rb") as f:
+                        st.session_state['excel_file_data'] = f.read()
+                        st.session_state['excel_filename'] = filename
+                    
+                    st.success(f"✅ Excel file generated with {len(selected_ids)} test case(s)! Click download button below.")
+                    st.rerun()
             except Exception as e:
                 st.error(f"❌ Error generating Excel file: {str(e)}")
         
@@ -192,8 +205,14 @@ if page == "All Test Cases" or page == "View Test Cases":  # Support both for ba
         st.markdown("**Click on any row to view test case details**")
         st.markdown("---")
         
+        # Initialize selected test cases in session state
+        if 'selected_test_cases' not in st.session_state:
+            st.session_state['selected_test_cases'] = []
+        
         # Table header
-        col_header1, col_header2, col_header3, col_header4 = st.columns([2, 4, 2, 1])
+        col_header0, col_header1, col_header2, col_header3, col_header4 = st.columns([0.5, 2, 4, 2, 1])
+        with col_header0:
+            st.markdown("**Export**")
         with col_header1:
             st.markdown("**Test Number**")
         with col_header2:
@@ -207,7 +226,19 @@ if page == "All Test Cases" or page == "View Test Cases":  # Support both for ba
         
         # Display each test case as a clickable row
         for tc in test_cases:
-            col1, col2, col3, col4 = st.columns([2, 4, 2, 1])
+            col0, col1, col2, col3, col4 = st.columns([0.5, 2, 4, 2, 1])
+            
+            # Export checkbox
+            with col0:
+                checkbox_key = f"export_checkbox_{tc['id']}"
+                is_selected = st.checkbox("", value=(tc['id'] in st.session_state['selected_test_cases']), key=checkbox_key, label_visibility="collapsed")
+                
+                # Update selected test cases based on checkbox state
+                if is_selected and tc['id'] not in st.session_state['selected_test_cases']:
+                    st.session_state['selected_test_cases'].append(tc['id'])
+                elif not is_selected and tc['id'] in st.session_state['selected_test_cases']:
+                    st.session_state['selected_test_cases'].remove(tc['id'])
+            
             
             # Make the row clickable - use button that spans most of the row
             with col1:
