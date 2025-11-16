@@ -36,19 +36,31 @@ Streamlit-based web application for creating and managing SimCorp Dimension test
 **Goal**: Define data structure for test cases and steps
 
 **Tasks**:
-- [ ] Create `models.py` with SQLite database setup
-- [ ] Define tables: `test_cases`, `test_steps`, `step_screenshots`
-- [ ] Create database initialization function
+- [x] Create `models.py` with SQLite database setup
+- [x] Define tables: `test_cases`, `test_steps`, `step_screenshots`
+- [x] Create database initialization function
 
 **Schema**:
 - `test_cases`: id, test_number, description, created_at
 - `test_steps`: id, test_case_id, step_number, description, modules, calculation_logic, configuration
 - `step_screenshots`: id, step_id, file_path, uploaded_at
 
+**Additional Work Completed**:
+- [x] **Comprehensive CRUD Functions**: Created full set of database operations for all entities
+  - **Why**: Having all CRUD functions ready upfront allows the frontend to be built without needing to add database logic later. This follows the "backend-first" approach and ensures data layer is complete before UI development.
+  - **Functions Added**:
+    - Test Cases: `create_test_case()`, `get_all_test_cases()`, `get_test_case_by_id()`, `update_test_case()`, `delete_test_case()`
+    - Test Steps: `create_test_step()`, `get_steps_by_test_case()`, `get_step_by_id()`, `update_test_step()`, `delete_test_step()`
+    - Screenshots: `add_screenshot_to_step()`, `get_screenshots_by_step()`, `delete_screenshot()`
+- [x] **Database Connection Management**: Implemented `get_db_connection()` with automatic directory creation
+- [x] **Test Script**: Added `if __name__ == "__main__"` block for direct testing and validation
+
 **Validation**:
-- [ ] Database file created successfully
-- [ ] Tables created with correct schema
-- [ ] Can insert and query sample data
+- [x] Database file created successfully at `database/test_cases.db`
+- [x] All 3 tables created with correct schema (verified via PRAGMA table_info)
+- [x] Can insert and query sample data (tested with test case and step creation)
+- [x] Database operations tested and working correctly
+- [x] No linting errors
 
 **Commit**: `[Backend] Add database schema and models`
 
