@@ -13,7 +13,10 @@ from models import (
     update_test_case,
     delete_test_case,
     get_steps_by_test_case,
-    create_test_step
+    create_test_step,
+    get_step_by_id,
+    update_test_step,
+    delete_test_step
 )
 import pandas as pd
 
@@ -40,33 +43,63 @@ st.sidebar.title("📋 Test Case Documentation")
 st.sidebar.markdown("---")
 
 # Navigation options
-# If force_edit_page is set, automatically switch to Edit Test Case page
-if 'force_edit_page' in st.session_state and st.session_state['force_edit_page']:
-    # Set the page to Edit Test Case
-    if 'page' not in st.session_state or st.session_state['page'] != "Edit Test Case":
-        st.session_state['page'] = "Edit Test Case"
+# If force_details_page is set, automatically switch to Test Case Details page
+if 'force_details_page' in st.session_state and st.session_state['force_details_page']:
+    # Set the page to Test Case Details
+    if 'page' not in st.session_state or st.session_state['page'] != "Test Case Details":
+        st.session_state['page'] = "Test Case Details"
     # Clear the force flag
-    del st.session_state['force_edit_page']
+    del st.session_state['force_details_page']
+
+# If force_create_page is set, automatically switch to Create New Test Case page
+if 'force_create_page' in st.session_state and st.session_state['force_create_page']:
+    # Set the page to Create New Test Case
+    st.session_state['page'] = "Create New Test Case"
+    # Clear the force flag
+    del st.session_state['force_create_page']
 
 # Initialize page in session state if not exists
 if 'page' not in st.session_state:
-    st.session_state['page'] = "View Test Cases"
+    st.session_state['page'] = "All Test Cases"
+
+# If somehow on Edit Test Case page, redirect to Test Case Details
+if st.session_state.get('page') == "Edit Test Case":
+    st.session_state['page'] = "Test Case Details"
 
 # Navigation radio button
+# Determine the index based on current page
+page_options = ["All Test Cases", "Test Case Details"]
+current_page = st.session_state.get('page', "All Test Cases")
+# Redirect old page names (but allow Create New Test Case to work)
+if current_page == "Edit Test Case" or current_page == "View Test Cases":
+    if current_page == "View Test Cases":
+        current_page = "All Test Cases"
+    elif current_page == "Edit Test Case":
+        current_page = "Test Case Details"
+    st.session_state['page'] = current_page
+
+try:
+    default_index = page_options.index(current_page) if current_page in page_options else 0
+except ValueError:
+    default_index = 0
+
 page_selection = st.sidebar.radio(
     "Navigation",
-    ["View Test Cases", "Create New Test Case", "Edit Test Case", "Test Case Details"],
-    index=["View Test Cases", "Create New Test Case", "Edit Test Case", "Test Case Details"].index(st.session_state['page']) if st.session_state['page'] in ["View Test Cases", "Create New Test Case", "Edit Test Case", "Test Case Details"] else 0,
-    label_visibility="collapsed",
-    key="nav_radio"
+    page_options,
+    index=default_index,
+    label_visibility="collapsed"
 )
 
-# Update session state when user manually changes page
-if page_selection != st.session_state['page']:
+# Always use session state page for routing to support programmatic navigation
+# But update session state if user manually changed the radio button
+# Only update if the current page is one of the radio button options
+current_session_page = st.session_state.get('page', "All Test Cases")
+if page_selection != current_session_page and current_session_page in page_options:
     st.session_state['page'] = page_selection
 
-# Use session state page for routing
-page = st.session_state['page']
+# Use session state for routing (this allows programmatic navigation to work)
+# If page is "Create New Test Case", use it directly (not in radio options)
+page = st.session_state.get('page', page_selection)
 
 # Main content area
 st.title("📋 Test Case Documentation Tool")
@@ -75,82 +108,81 @@ st.markdown("Manage your SimCorp Dimension test cases and documentation")
 st.markdown("---")
 
 # Page routing
-if page == "View Test Cases":
-    st.header("📊 All Test Cases")
+if page == "All Test Cases" or page == "View Test Cases":  # Support both for backward compatibility
+    # Header with Create button
+    col_header_title, col_header_button = st.columns([3, 1])
+    with col_header_title:
+        st.header("📊 All Test Cases")
+    with col_header_button:
+        if st.button("➕ Create New Test Case", type="primary", use_container_width=True, key="create_new_tc_btn"):
+            st.session_state['page'] = "Create New Test Case"
+            st.session_state['force_create_page'] = True
+            st.rerun()
     
     # Get all test cases
     test_cases = get_all_test_cases()
     
     if len(test_cases) == 0:
-        st.info("📝 No test cases yet. Create your first test case using the sidebar!")
+        st.info("📝 No test cases yet. Click 'Create New Test Case' above to get started!")
         st.markdown("""
         ### Getting Started
-        1. Select **"Create New Test Case"** from the sidebar
+        1. Click **"➕ Create New Test Case"** button above
         2. Fill in the test case details
         3. Start adding steps and documentation
         """)
     else:
-        # Display test cases in a table
-        st.markdown(f"**Total Test Cases: {len(test_cases)}**")
+        # Create custom clickable table
+        st.markdown("**Click on any row to view test case details**")
+        st.markdown("---")
         
-        # Prepare data for display
-        display_data = []
-        for tc in test_cases:
-            display_data.append({
-                "Test Number": tc['test_number'],
-                "Description": tc['description'],
-                "Created": tc['created_at'][:10] if tc['created_at'] else "N/A"
-            })
-        
-        # Create DataFrame and display
-        df = pd.DataFrame(display_data)
-        st.dataframe(
-            df,
-            use_container_width=True,
-            hide_index=True
-        )
+        # Table header
+        col_header1, col_header2, col_header3, col_header4 = st.columns([2, 4, 2, 1])
+        with col_header1:
+            st.markdown("**Test Number**")
+        with col_header2:
+            st.markdown("**Description**")
+        with col_header3:
+            st.markdown("**Created**")
+        with col_header4:
+            st.markdown("**Actions**")
         
         st.markdown("---")
-        st.markdown("### Actions")
         
-        # Create columns for edit/delete actions
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("#### ✏️ Edit Test Case")
-            test_cases_for_edit = {
-                (f"{tc['test_number']} - {tc['description'][:50]}..." if len(tc['description']) > 50 
-                 else f"{tc['test_number']} - {tc['description']}"): tc['id'] 
-                for tc in test_cases
-            }
-            selected_edit = st.selectbox(
-                "Select test case to edit:",
-                options=list(test_cases_for_edit.keys()),
-                key="edit_select",
-                label_visibility="collapsed"
-            )
-            if st.button("Edit Selected", key="edit_btn", use_container_width=True):
-                st.session_state['edit_test_case_id'] = test_cases_for_edit[selected_edit]
-                st.session_state['edit_test_case_number'] = next(tc['test_number'] for tc in test_cases if tc['id'] == test_cases_for_edit[selected_edit])
-                st.session_state['force_edit_page'] = True
-                st.rerun()
-        
-        with col2:
-            st.markdown("#### 🗑️ Delete Test Case")
-            test_cases_for_delete = {
-                (f"{tc['test_number']} - {tc['description'][:50]}..." if len(tc['description']) > 50 
-                 else f"{tc['test_number']} - {tc['description']}"): tc['id'] 
-                for tc in test_cases
-            }
-            selected_delete = st.selectbox(
-                "Select test case to delete:",
-                options=list(test_cases_for_delete.keys()),
-                key="delete_select",
-                label_visibility="collapsed"
-            )
-            if st.button("Delete Selected", key="delete_btn", type="secondary", use_container_width=True):
-                st.session_state['delete_test_case_id'] = test_cases_for_delete[selected_delete]
-                st.session_state['delete_test_case_number'] = next(tc['test_number'] for tc in test_cases if tc['id'] == test_cases_for_delete[selected_delete])
+        # Display each test case as a clickable row
+        for tc in test_cases:
+            col1, col2, col3, col4 = st.columns([2, 4, 2, 1])
+            
+            # Make the row clickable - use button that spans most of the row
+            with col1:
+                if st.button(tc['test_number'], key=f"row_{tc['id']}_1", use_container_width=True):
+                    st.session_state['view_test_case_id'] = tc['id']
+                    st.session_state['page'] = "Test Case Details"
+                    st.session_state['force_details_page'] = True
+                    st.rerun()
+            
+            with col2:
+                description = tc['description'][:80] + "..." if len(tc['description']) > 80 else tc['description']
+                if st.button(description, key=f"row_{tc['id']}_2", use_container_width=True):
+                    st.session_state['view_test_case_id'] = tc['id']
+                    st.session_state['page'] = "Test Case Details"
+                    st.session_state['force_details_page'] = True
+                    st.rerun()
+            
+            with col3:
+                created_date = tc['created_at'][:10] if tc['created_at'] else "N/A"
+                if st.button(created_date, key=f"row_{tc['id']}_3", use_container_width=True):
+                    st.session_state['view_test_case_id'] = tc['id']
+                    st.session_state['page'] = "Test Case Details"
+                    st.session_state['force_details_page'] = True
+                    st.rerun()
+            
+            with col4:
+                # Delete button
+                if st.button("🗑️", key=f"delete_{tc['id']}", help=f"Delete {tc['test_number']}"):
+                    st.session_state['delete_test_case_id'] = tc['id']
+                    st.session_state['delete_test_case_number'] = tc['test_number']
+            
+            st.markdown("---")
         
         # Handle delete confirmation
         if 'delete_test_case_id' in st.session_state and 'delete_test_case_number' in st.session_state:
@@ -176,11 +208,13 @@ if page == "View Test Cases":
                     del st.session_state['delete_test_case_id']
                     del st.session_state['delete_test_case_number']
                     st.rerun()
-        
-        st.markdown("---")
-        st.markdown("💡 **Tip**: Use the sidebar to create new test cases or edit existing ones")
 
 elif page == "Create New Test Case":
+    # Back button
+    if st.button("← Back to All Test Cases", key="back_from_create"):
+        st.session_state['page'] = "All Test Cases"
+        st.rerun()
+    
     st.header("➕ Create New Test Case")
     st.markdown("Fill in the details below to create a new test case.")
     
@@ -218,10 +252,12 @@ elif page == "Create New Test Case":
                     if test_case_id:
                         st.success(f"✅ Test case '{test_number}' created successfully!")
                         st.balloons()
-                        st.info("💡 Switch to 'View Test Cases' to see your new test case.")
                         
                         # Clear cache to refresh the list
                         st.cache_data.clear()
+                        # Redirect to All Test Cases
+                        st.session_state['page'] = "All Test Cases"
+                        st.rerun()
                 except Exception as e:
                     if "UNIQUE constraint failed" in str(e):
                         st.error(f"❌ Test case number '{test_number}' already exists! Please use a different number.")
@@ -236,112 +272,14 @@ elif page == "Create New Test Case":
     - After creating, you can add steps, screenshots, and metadata to the test case
     """)
 
-elif page == "Edit Test Case":
-    st.header("✏️ Edit Test Case")
-    
-    # Check if test case ID is in session state (from View Test Cases page)
-    if 'edit_test_case_id' in st.session_state:
-        test_case_id = st.session_state['edit_test_case_id']
-        test_case = get_test_case_by_id(test_case_id)
-        
-        if test_case:
-            st.markdown(f"Editing: **{test_case['test_number']}**")
-            st.markdown("---")
-            
-            # Create edit form
-            with st.form("edit_test_case_form", clear_on_submit=False):
-                test_number = st.text_input(
-                    "Test Number *",
-                    value=test_case['test_number'],
-                    help="Enter a unique test case number"
-                )
-                
-                description = st.text_area(
-                    "Description *",
-                    value=test_case['description'],
-                    help="Describe what this test case validates",
-                    height=100
-                )
-                
-                submitted = st.form_submit_button("Save Changes", type="primary", use_container_width=True)
-                
-                if submitted:
-                    # Validation
-                    if not test_number.strip():
-                        st.error("❌ Test Number is required!")
-                    elif not description.strip():
-                        st.error("❌ Description is required!")
-                    else:
-                        try:
-                            # Update test case
-                            success = update_test_case(
-                                test_case_id=test_case_id,
-                                test_number=test_number.strip(),
-                                description=description.strip()
-                            )
-                            
-                            if success:
-                                st.success(f"✅ Test case '{test_number}' updated successfully!")
-                                st.balloons()
-                                st.info("💡 Switch to 'View Test Cases' to see the updated test case.")
-                                
-                                # Clear session state and cache
-                                del st.session_state['edit_test_case_id']
-                                if 'edit_test_case_number' in st.session_state:
-                                    del st.session_state['edit_test_case_number']
-                                st.cache_data.clear()
-                            else:
-                                st.error("❌ Failed to update test case.")
-                        except Exception as e:
-                            if "UNIQUE constraint failed" in str(e):
-                                st.error(f"❌ Test case number '{test_number}' already exists! Please use a different number.")
-                            else:
-                                st.error(f"❌ Error updating test case: {str(e)}")
-            
-            st.markdown("---")
-            if st.button("❌ Cancel Editing", use_container_width=True):
-                del st.session_state['edit_test_case_id']
-                if 'edit_test_case_number' in st.session_state:
-                    del st.session_state['edit_test_case_number']
-                st.rerun()
-        else:
-            st.error("❌ Test case not found!")
-            if st.button("Go to View Test Cases", use_container_width=True):
-                del st.session_state['edit_test_case_id']
-                if 'edit_test_case_number' in st.session_state:
-                    del st.session_state['edit_test_case_number']
-                st.rerun()
-    else:
-        # No test case selected
-        st.info("📝 No test case selected for editing.")
-        st.markdown("""
-        ### How to Edit a Test Case:
-        1. Go to **"View Test Cases"** page
-        2. Select a test case from the "Edit Test Case" dropdown
-        3. Click **"Edit Selected"** button
-        4. You'll be redirected here to edit the test case
-        """)
-        
-        # Show all test cases for quick selection
-        test_cases = get_all_test_cases()
-        if len(test_cases) > 0:
-            st.markdown("---")
-            st.markdown("### Or select a test case to edit:")
-            test_cases_dict = {
-                (f"{tc['test_number']} - {tc['description'][:50]}..." if len(tc['description']) > 50 
-                 else f"{tc['test_number']} - {tc['description']}"): tc['id'] 
-                for tc in test_cases
-            }
-            selected = st.selectbox(
-                "Select test case:",
-                options=list(test_cases_dict.keys()),
-                key="direct_edit_select"
-            )
-            if st.button("Edit Selected Test Case", type="primary", use_container_width=True):
-                st.session_state['edit_test_case_id'] = test_cases_dict[selected]
-                st.rerun()
-
 elif page == "Test Case Details":
+    # Back button
+    if st.button("← Back to All Test Cases", key="back_to_all"):
+        if 'view_test_case_id' in st.session_state:
+            del st.session_state['view_test_case_id']
+        st.session_state['page'] = "All Test Cases"
+        st.rerun()
+    
     st.header("📝 Test Case Details")
     
     # Get all test cases for selection
@@ -362,9 +300,22 @@ elif page == "Test Case Details":
             for tc in test_cases
         }
         
+        # If test case was selected from All Test Cases page, use it
+        if 'view_test_case_id' in st.session_state:
+            # Find the test case in the dict
+            selected_id = st.session_state['view_test_case_id']
+            selected_tc_key = next((key for key, val in test_cases_dict.items() if val == selected_id), None)
+            if selected_tc_key:
+                default_index = list(test_cases_dict.keys()).index(selected_tc_key)
+            else:
+                default_index = 0
+        else:
+            default_index = 0
+        
         selected_tc = st.selectbox(
             "Select Test Case:",
             options=list(test_cases_dict.keys()),
+            index=default_index,
             key="details_test_case_select"
         )
         
@@ -374,14 +325,83 @@ elif page == "Test Case Details":
         if test_case:
             st.markdown("---")
             
-            # Display test case info
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown(f"**Test Number:** {test_case['test_number']}")
-            with col2:
-                st.markdown(f"**Created:** {test_case['created_at'][:10] if test_case['created_at'] else 'N/A'}")
+            # Check if we're in edit mode
+            edit_mode_key = f'edit_test_case_details_{test_case_id}'
+            is_editing = st.session_state.get(edit_mode_key, False)
             
-            st.markdown(f"**Description:** {test_case['description']}")
+            if not is_editing:
+                # Display test case info (view mode)
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    col_info1, col_info2 = st.columns(2)
+                    with col_info1:
+                        st.markdown(f"**Test Number:** {test_case['test_number']}")
+                    with col_info2:
+                        st.markdown(f"**Created:** {test_case['created_at'][:10] if test_case['created_at'] else 'N/A'}")
+                    st.markdown(f"**Description:** {test_case['description']}")
+                with col2:
+                    if st.button("✏️ Edit Test Case", key=f"edit_tc_{test_case_id}", use_container_width=True):
+                        st.session_state[edit_mode_key] = True
+                        st.rerun()
+            else:
+                # Edit mode
+                st.markdown("### ✏️ Edit Test Case")
+                
+                with st.form(f"edit_test_case_form_{test_case_id}", clear_on_submit=False):
+                    test_number = st.text_input(
+                        "Test Number *",
+                        value=test_case['test_number'],
+                        key=f"edit_tc_num_{test_case_id}",
+                        help="Enter a unique test case number"
+                    )
+                    
+                    description = st.text_area(
+                        "Description *",
+                        value=test_case['description'],
+                        key=f"edit_tc_desc_{test_case_id}",
+                        help="Describe what this test case validates",
+                        height=100
+                    )
+                    
+                    st.markdown(f"**Created:** {test_case['created_at'][:10] if test_case['created_at'] else 'N/A'} *(cannot be changed)*")
+                    
+                    col_save, col_cancel = st.columns(2)
+                    with col_save:
+                        submitted = st.form_submit_button("💾 Save Changes", type="primary", use_container_width=True)
+                    with col_cancel:
+                        cancelled = st.form_submit_button("❌ Cancel", use_container_width=True)
+                    
+                    if submitted:
+                        # Validation
+                        if not test_number.strip():
+                            st.error("❌ Test Number is required!")
+                        elif not description.strip():
+                            st.error("❌ Description is required!")
+                        else:
+                            try:
+                                # Update test case
+                                success = update_test_case(
+                                    test_case_id=test_case_id,
+                                    test_number=test_number.strip(),
+                                    description=description.strip()
+                                )
+                                
+                                if success:
+                                    st.success(f"✅ Test case '{test_number}' updated successfully!")
+                                    st.session_state[edit_mode_key] = False
+                                    st.cache_data.clear()
+                                    st.rerun()
+                                else:
+                                    st.error("❌ Failed to update test case.")
+                            except Exception as e:
+                                if "UNIQUE constraint failed" in str(e):
+                                    st.error(f"❌ Test case number '{test_number}' already exists! Please use a different number.")
+                                else:
+                                    st.error(f"❌ Error updating test case: {str(e)}")
+                    
+                    if cancelled:
+                        st.session_state[edit_mode_key] = False
+                        st.rerun()
             
             st.markdown("---")
             
@@ -395,14 +415,144 @@ elif page == "Test Case Details":
             else:
                 # Display steps
                 for idx, step in enumerate(steps, 1):
-                    with st.expander(f"Step {step['step_number']}: {step['description'][:50]}..." if len(step['description']) > 50 else f"Step {step['step_number']}: {step['description']}", expanded=False):
+                    step_key = f"step_{step['id']}"
+                    expander_title = f"Step {step['step_number']}: {step['description'][:50]}..." if len(step['description']) > 50 else f"Step {step['step_number']}: {step['description']}"
+                    
+                    with st.expander(expander_title, expanded=False):
                         st.markdown(f"**Description:** {step['description']}")
+                        
                         if step['modules']:
                             st.markdown(f"**Modules:** {step['modules']}")
+                        else:
+                            st.markdown("**Modules:** *Not specified*")
+                        
                         if step['calculation_logic']:
                             st.markdown(f"**Calculation Logic:** {step['calculation_logic']}")
+                        else:
+                            st.markdown("**Calculation Logic:** *Not specified*")
+                        
                         if step['configuration']:
                             st.markdown(f"**Configuration:** {step['configuration']}")
+                        else:
+                            st.markdown("**Configuration:** *Not specified*")
+                        
+                        st.markdown("---")
+                        
+                        # Edit and Delete buttons
+                        col_edit, col_delete = st.columns(2)
+                        with col_edit:
+                            if st.button("✏️ Edit Step", key=f"edit_{step['id']}", use_container_width=True):
+                                st.session_state[f'edit_step_id_{test_case_id}'] = step['id']
+                                st.rerun()
+                        with col_delete:
+                            if st.button("🗑️ Delete Step", key=f"delete_{step['id']}", type="secondary", use_container_width=True):
+                                st.session_state[f'delete_step_id_{test_case_id}'] = step['id']
+                                st.session_state[f'delete_step_number_{test_case_id}'] = step['step_number']
+                        
+                        # Handle delete confirmation
+                        if f'delete_step_id_{test_case_id}' in st.session_state and st.session_state[f'delete_step_id_{test_case_id}'] == step['id']:
+                            st.warning(f"⚠️ Are you sure you want to delete Step {step['step_number']}?")
+                            col_confirm, col_cancel = st.columns(2)
+                            with col_confirm:
+                                if st.button("✅ Confirm Delete", key=f"confirm_del_{step['id']}", type="primary", use_container_width=True):
+                                    try:
+                                        success = delete_test_step(step['id'])
+                                        if success:
+                                            st.success(f"✅ Step {step['step_number']} deleted successfully!")
+                                            del st.session_state[f'delete_step_id_{test_case_id}']
+                                            if f'delete_step_number_{test_case_id}' in st.session_state:
+                                                del st.session_state[f'delete_step_number_{test_case_id}']
+                                            st.cache_data.clear()
+                                            st.rerun()
+                                        else:
+                                            st.error("❌ Failed to delete step.")
+                                    except Exception as e:
+                                        st.error(f"❌ Error deleting step: {str(e)}")
+                            with col_cancel:
+                                if st.button("❌ Cancel", key=f"cancel_del_{step['id']}", use_container_width=True):
+                                    del st.session_state[f'delete_step_id_{test_case_id}']
+                                    if f'delete_step_number_{test_case_id}' in st.session_state:
+                                        del st.session_state[f'delete_step_number_{test_case_id}']
+                                    st.rerun()
+                        
+                        # Edit form (shown when edit button is clicked)
+                        if f'edit_step_id_{test_case_id}' in st.session_state and st.session_state[f'edit_step_id_{test_case_id}'] == step['id']:
+                            st.markdown("---")
+                            st.markdown("### ✏️ Edit Step")
+                            
+                            with st.form(f"edit_step_form_{step['id']}", clear_on_submit=False):
+                                edit_step_number = st.number_input(
+                                    "Step Number *",
+                                    min_value=1,
+                                    value=step['step_number'],
+                                    key=f"edit_step_num_{step['id']}",
+                                    help="Step number in sequence"
+                                )
+                                
+                                edit_description = st.text_area(
+                                    "Step Description *",
+                                    value=step['description'],
+                                    key=f"edit_desc_{step['id']}",
+                                    help="Detailed description of the step",
+                                    height=80
+                                )
+                                
+                                edit_modules = st.text_area(
+                                    "Modules Used",
+                                    value=step['modules'] if step['modules'] else "",
+                                    key=f"edit_modules_{step['id']}",
+                                    help="List the modules or components used in this step",
+                                    height=60
+                                )
+                                
+                                edit_calculation_logic = st.text_area(
+                                    "Calculation Logic",
+                                    value=step['calculation_logic'] if step['calculation_logic'] else "",
+                                    key=f"edit_calc_{step['id']}",
+                                    help="Describe any calculation logic or formulas used",
+                                    height=80
+                                )
+                                
+                                edit_configuration = st.text_area(
+                                    "Configuration Elements",
+                                    value=step['configuration'] if step['configuration'] else "",
+                                    key=f"edit_config_{step['id']}",
+                                    help="List any specific configuration elements required",
+                                    height=80
+                                )
+                                
+                                col_save, col_cancel_edit = st.columns(2)
+                                with col_save:
+                                    if st.form_submit_button("💾 Save Changes", type="primary", use_container_width=True):
+                                        if not edit_description.strip():
+                                            st.error("❌ Step description is required!")
+                                        else:
+                                            try:
+                                                success = update_test_step(
+                                                    step_id=step['id'],
+                                                    step_number=int(edit_step_number),
+                                                    description=edit_description.strip(),
+                                                    modules=edit_modules.strip() if edit_modules.strip() else None,
+                                                    calculation_logic=edit_calculation_logic.strip() if edit_calculation_logic.strip() else None,
+                                                    configuration=edit_configuration.strip() if edit_configuration.strip() else None
+                                                )
+                                                
+                                                if success:
+                                                    st.success(f"✅ Step {edit_step_number} updated successfully!")
+                                                    del st.session_state[f'edit_step_id_{test_case_id}']
+                                                    st.cache_data.clear()
+                                                    st.rerun()
+                                                else:
+                                                    st.error("❌ Failed to update step.")
+                                            except Exception as e:
+                                                if "UNIQUE constraint failed" in str(e):
+                                                    st.error(f"❌ Step number {edit_step_number} already exists for this test case!")
+                                                else:
+                                                    st.error(f"❌ Error updating step: {str(e)}")
+                                with col_cancel_edit:
+                                    if st.form_submit_button("❌ Cancel", use_container_width=True):
+                                        del st.session_state[f'edit_step_id_{test_case_id}']
+                                        st.rerun()
             
             st.markdown("---")
             
@@ -428,6 +578,33 @@ elif page == "Test Case Details":
                         height=80
                     )
                 
+                st.markdown("**Metadata (Optional):**")
+                
+                col_modules, col_calc = st.columns(2)
+                
+                with col_modules:
+                    step_modules = st.text_area(
+                        "Modules Used",
+                        placeholder="e.g., Order Management, Compliance Module",
+                        help="List the modules or components used in this step",
+                        height=60
+                    )
+                
+                with col_calc:
+                    step_calculation_logic = st.text_area(
+                        "Calculation Logic",
+                        placeholder="e.g., Formula: X = Y + Z",
+                        help="Describe any calculation logic or formulas used",
+                        height=60
+                    )
+                
+                step_configuration = st.text_area(
+                    "Configuration Elements",
+                    placeholder="e.g., Config setting: enabled, Parameter: value",
+                    help="List any specific configuration elements required",
+                    height=60
+                )
+                
                 submitted = st.form_submit_button("Add Step", type="primary", use_container_width=True)
                 
                 if submitted:
@@ -445,7 +622,10 @@ elif page == "Test Case Details":
                                 step_id = create_test_step(
                                     test_case_id=test_case_id,
                                     step_number=int(step_number),
-                                    description=step_description.strip()
+                                    description=step_description.strip(),
+                                    modules=step_modules.strip() if step_modules.strip() else None,
+                                    calculation_logic=step_calculation_logic.strip() if step_calculation_logic.strip() else None,
+                                    configuration=step_configuration.strip() if step_configuration.strip() else None
                                 )
                                 
                                 if step_id:
@@ -462,7 +642,7 @@ elif page == "Test Case Details":
                                 st.error(f"❌ Error adding step: {str(e)}")
             
             st.markdown("---")
-            st.markdown("💡 **Tip**: Steps will be displayed in order by step number. You can edit steps and add metadata in the next steps.")
+            st.markdown("💡 **Tip**: Steps are displayed in order by step number. Click 'Edit Step' to add or modify metadata (modules, calculation logic, configuration).")
 
 # Footer
 st.markdown("---")
