@@ -123,15 +123,25 @@ Streamlit-based web application for creating and managing SimCorp Dimension test
 **Goal**: Allow editing existing test cases
 
 **Tasks**:
-- [ ] Add edit button for each test case in list
-- [ ] Create edit form (pre-filled with existing data)
-- [ ] Update database on save
-- [ ] Add delete functionality
+- [x] Add edit button for each test case in list
+- [x] Create edit form (pre-filled with existing data)
+- [x] Update database on save
+- [x] Add delete functionality
+
+**Additional Work Completed**:
+- [x] **Navigation Enhancement**: Implemented automatic page navigation when clicking "Edit Selected" button
+  - **Why**: Improves user experience by automatically switching to edit page instead of requiring manual navigation
+  - **Implementation**: Added session state management for page routing with force navigation flag
+- [x] **Delete Confirmation**: Added confirmation dialog before deletion to prevent accidental deletions
+- [x] **Dual Edit Access**: Users can edit from View Test Cases page or directly from Edit Test Case page
+- [x] **Form Validation**: Added validation for edit form with duplicate number checking
 
 **Validation**:
-- [ ] Can edit test case description/number
-- [ ] Changes persist in database
-- [ ] Can delete test case
+- [x] Can edit test case description/number (verified by user)
+- [x] Changes persist in database correctly
+- [x] Can delete test case with confirmation
+- [x] Navigation automatically switches to edit page when "Edit Selected" is clicked (verified by user)
+- [x] Edit form pre-fills with existing data correctly
 
 **Commit**: `[Frontend] Add test case edit and delete functionality`
 
