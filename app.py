@@ -23,7 +23,10 @@ from models import (
 )
 import pandas as pd
 import os
+import re
 from pathlib import Path
+from PIL import Image as PILImage
+from excel_export import create_excel_export
 
 # Page configuration
 st.set_page_config(
@@ -134,11 +137,40 @@ st.markdown("---")
 
 # Page routing
 if page == "All Test Cases" or page == "View Test Cases":  # Support both for backward compatibility
-    # Header with Create button
-    col_header_title, col_header_button = st.columns([3, 1])
+    # Header with Create and Export buttons
+    col_header_title, col_header_btn1, col_header_btn2 = st.columns([2, 1, 1])
     with col_header_title:
         st.header("📊 All Test Cases")
-    with col_header_button:
+    with col_header_btn1:
+        # Export button
+        if st.button("📥 Export to Excel", key="export_excel", use_container_width=True):
+            try:
+                # Generate Excel file
+                timestamp = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"test_cases_export_{timestamp}.xlsx"
+                file_path = create_excel_export(filename)
+                
+                # Read file data and store in session state
+                with open(file_path, "rb") as f:
+                    st.session_state['excel_file_data'] = f.read()
+                    st.session_state['excel_filename'] = filename
+                
+                st.success(f"✅ Excel file generated! Click download button below.")
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ Error generating Excel file: {str(e)}")
+        
+        # Download button (shown if file is ready)
+        if 'excel_file_data' in st.session_state and 'excel_filename' in st.session_state:
+            st.download_button(
+                label="⬇️ Download Excel File",
+                data=st.session_state['excel_file_data'],
+                file_name=st.session_state['excel_filename'],
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key="download_excel",
+                use_container_width=True
+            )
+    with col_header_btn2:
         if st.button("➕ Create New Test Case", type="primary", use_container_width=True, key="create_new_tc_btn"):
             st.session_state['page'] = "Create New Test Case"
             st.session_state['force_create_page'] = True
@@ -243,12 +275,56 @@ elif page == "Create New Test Case":
     st.header("➕ Create New Test Case")
     st.markdown("Fill in the details below to create a new test case.")
     
+    # Suggest next test number
+    def suggest_next_test_number():
+        """Suggest the next test number based on existing test cases."""
+        test_cases = get_all_test_cases()
+        if not test_cases:
+            return "TC001"  # Default if no test cases exist
+        
+        # Extract numbers from test case numbers
+        numbers = []
+        for tc in test_cases:
+            # Try to find numeric patterns (e.g., "TC001", "TC-001", "001", etc.)
+            match = re.search(r'(\d+)', tc['test_number'])
+            if match:
+                numbers.append(int(match.group(1)))
+        
+        if numbers:
+            next_num = max(numbers) + 1
+            # Try to preserve the format of the most common pattern
+            # Check if most test cases use a prefix
+            prefixes = {}
+            for tc in test_cases:
+                match = re.match(r'^([A-Za-z\-]+)', tc['test_number'])
+                if match:
+                    prefix = match.group(1)
+                    prefixes[prefix] = prefixes.get(prefix, 0) + 1
+            
+            if prefixes:
+                # Use the most common prefix
+                most_common_prefix = max(prefixes, key=prefixes.get)
+                # Check if they use dashes or not
+                if '-' in most_common_prefix:
+                    return f"{most_common_prefix.split('-')[0]}-{next_num:03d}"
+                else:
+                    return f"{most_common_prefix}{next_num:03d}"
+            else:
+                # Default format
+                return f"TC{next_num:03d}"
+        else:
+            # No numbers found, use default
+            return "TC001"
+    
+    suggested_number = suggest_next_test_number()
+    
     # Create form
     with st.form("create_test_case_form", clear_on_submit=True):
         test_number = st.text_input(
             "Test Number *",
+            value=suggested_number,
             placeholder="e.g., TC-001, TC-IMPL-001",
-            help="Enter a unique test case number"
+            help=f"Suggested: {suggested_number} (based on existing test cases)"
         )
         
         description = st.text_area(
@@ -298,13 +374,6 @@ elif page == "Create New Test Case":
     """)
 
 elif page == "Test Case Details":
-    # Back button
-    if st.button("← Back to All Test Cases", key="back_to_all"):
-        if 'view_test_case_id' in st.session_state:
-            del st.session_state['view_test_case_id']
-        st.session_state['page'] = "All Test Cases"
-        st.rerun()
-    
     st.header("📝 Test Case Details")
     
     # Get all test cases for selection
@@ -317,6 +386,10 @@ elif page == "Test Case Details":
         1. Go to **"Create New Test Case"** to create your first test case
         2. Then come back here to add steps to it
         """)
+        # Back button (no unsaved changes to check)
+        if st.button("← Back to All Test Cases", key="back_to_all_empty"):
+            st.session_state['page'] = "All Test Cases"
+            st.rerun()
     else:
         # Test case selection
         test_cases_dict = {
@@ -346,6 +419,67 @@ elif page == "Test Case Details":
         
         test_case_id = test_cases_dict[selected_tc]
         test_case = get_test_case_by_id(test_case_id)
+        
+        # Check for unsaved changes function
+        def has_unsaved_changes(tc_id):
+            """Check if there are unsaved changes in the current test case."""
+            edit_mode_key = f'edit_test_case_details_{tc_id}'
+            return st.session_state.get(edit_mode_key, False)
+        
+        # Back button with unsaved changes check (placed after test case is selected)
+        if st.button("← Back to All Test Cases", key="back_to_all"):
+            # Check for unsaved changes
+            if has_unsaved_changes(test_case_id):
+                # Set flag to show warning
+                st.session_state['show_unsaved_warning'] = True
+                st.session_state['pending_navigation'] = True
+                st.session_state['warning_test_case_id'] = test_case_id
+                st.rerun()
+            else:
+                # No unsaved changes, proceed with navigation
+                if 'view_test_case_id' in st.session_state:
+                    del st.session_state['view_test_case_id']
+                if 'show_unsaved_warning' in st.session_state:
+                    del st.session_state['show_unsaved_warning']
+                if 'pending_navigation' in st.session_state:
+                    del st.session_state['pending_navigation']
+                if 'warning_test_case_id' in st.session_state:
+                    del st.session_state['warning_test_case_id']
+                st.session_state['page'] = "All Test Cases"
+                st.rerun()
+        
+        # Show unsaved changes warning if needed
+        if st.session_state.get('show_unsaved_warning', False) and st.session_state.get('pending_navigation', False):
+            warning_tc_id = st.session_state.get('warning_test_case_id', test_case_id)
+            st.warning("⚠️ **You have unsaved changes!** Please save or cancel your edits before leaving this page.")
+            col_save, col_discard, col_cancel = st.columns(3)
+            with col_save:
+                if st.button("💾 Save & Go Back", key="save_and_back", type="primary", use_container_width=True):
+                    st.info("💡 Please click '💾 Save Changes' in the edit form below, then click '← Back to All Test Cases' again.")
+            with col_discard:
+                if st.button("🗑️ Discard Changes", key="discard_and_back", use_container_width=True):
+                    # Exit edit mode
+                    if warning_tc_id:
+                        edit_mode_key = f'edit_test_case_details_{warning_tc_id}'
+                        st.session_state[edit_mode_key] = False
+                    
+                    # Clear warning and navigate
+                    del st.session_state['show_unsaved_warning']
+                    del st.session_state['pending_navigation']
+                    if 'warning_test_case_id' in st.session_state:
+                        del st.session_state['warning_test_case_id']
+                    if 'view_test_case_id' in st.session_state:
+                        del st.session_state['view_test_case_id']
+                    st.session_state['page'] = "All Test Cases"
+                    st.rerun()
+            with col_cancel:
+                if st.button("❌ Stay on Page", key="stay_on_page", use_container_width=True):
+                    del st.session_state['show_unsaved_warning']
+                    del st.session_state['pending_navigation']
+                    if 'warning_test_case_id' in st.session_state:
+                        del st.session_state['warning_test_case_id']
+                    st.rerun()
+            st.markdown("---")
         
         if test_case:
             st.markdown("---")
@@ -438,218 +572,129 @@ elif page == "Test Case Details":
             if len(steps) == 0:
                 st.info("No steps added yet. Use the form below to add your first step.")
             else:
-                # Display steps
+                # Display steps with inline editing
                 for idx, step in enumerate(steps, 1):
                     step_key = f"step_{step['id']}"
-                    expander_title = f"Step {step['step_number']}: {step['description'][:50]}..." if len(step['description']) > 50 else f"Step {step['step_number']}: {step['description']}"
                     
-                    with st.expander(expander_title, expanded=False):
-                        st.markdown(f"**Description:** {step['description']}")
-                        
-                        if step['modules']:
-                            st.markdown(f"**Modules:** {step['modules']}")
-                        else:
-                            st.markdown("**Modules:** *Not specified*")
-                        
-                        if step['calculation_logic']:
-                            st.markdown(f"**Calculation Logic:** {step['calculation_logic']}")
-                        else:
-                            st.markdown("**Calculation Logic:** *Not specified*")
-                        
-                        if step['configuration']:
-                            st.markdown(f"**Configuration:** {step['configuration']}")
-                        else:
-                            st.markdown("**Configuration:** *Not specified*")
-                        
-                        # Display screenshots
-                        screenshots = get_screenshots_by_step(step['id'])
-                        if screenshots:
-                            st.markdown("---")
-                            st.markdown("**Screenshots:**")
-                            # Display screenshots in a grid (3 per row for compact layout)
-                            for i in range(0, len(screenshots), 3):
-                                cols = st.columns(3)
-                                for j, col in enumerate(cols):
-                                    if i + j < len(screenshots):
-                                        screenshot = screenshots[i + j]
-                                        screenshot_path = screenshot['file_path']
-                                        with col:
-                                            if os.path.exists(screenshot_path):
-                                                # Display small thumbnail (120px)
-                                                upload_date = screenshot['uploaded_at'][:10] if screenshot['uploaded_at'] else 'N/A'
-                                                st.image(
-                                                    screenshot_path, 
-                                                    caption=upload_date, 
-                                                    width=120
-                                                )
-                                            else:
-                                                st.warning(f"⚠️ File not found")
-                        else:
-                            st.markdown("**Screenshots:** *No screenshots uploaded*")
-                        
-                        st.markdown("---")
-                        
-                        # Edit and Delete buttons
-                        col_edit, col_delete = st.columns(2)
-                        with col_edit:
-                            if st.button("✏️ Edit Step", key=f"edit_{step['id']}", use_container_width=True):
-                                st.session_state[f'edit_step_id_{test_case_id}'] = step['id']
-                                st.rerun()
-                        with col_delete:
-                            if st.button("🗑️ Delete Step", key=f"delete_{step['id']}", type="secondary", use_container_width=True):
-                                st.session_state[f'delete_step_id_{test_case_id}'] = step['id']
-                                st.session_state[f'delete_step_number_{test_case_id}'] = step['step_number']
-                        
-                        # Handle delete confirmation
-                        if f'delete_step_id_{test_case_id}' in st.session_state and st.session_state[f'delete_step_id_{test_case_id}'] == step['id']:
-                            st.warning(f"⚠️ Are you sure you want to delete Step {step['step_number']}?")
-                            col_confirm, col_cancel = st.columns(2)
-                            with col_confirm:
-                                if st.button("✅ Confirm Delete", key=f"confirm_del_{step['id']}", type="primary", use_container_width=True):
+                    with st.expander(f"Step {step['step_number']}", expanded=False):
+                        with st.form(f"step_form_{step['id']}", clear_on_submit=False):
+                            # Editable step number
+                            col_num, col_del = st.columns([3, 1])
+                            with col_num:
+                                edit_step_number = st.number_input(
+                                    "Step Number",
+                                    min_value=1,
+                                    value=step['step_number'],
+                                    key=f"step_num_{step['id']}"
+                                )
+                            with col_del:
+                                st.write("")  # Spacing
+                                st.write("")  # Spacing
+                                delete_checkbox = st.checkbox("🗑️ Delete", key=f"delete_{step['id']}")
+                            
+                            # Editable description
+                            edit_description = st.text_area(
+                                "Description",
+                                value=step['description'],
+                                key=f"desc_{step['id']}",
+                                height=80
+                            )
+                            
+                            # Editable notes
+                            edit_notes = st.text_area(
+                                "Notes",
+                                value=step['modules'] if step['modules'] else "",
+                                key=f"notes_{step['id']}",
+                                height=100
+                            )
+                            
+                            # Display screenshots
+                            screenshots = get_screenshots_by_step(step['id'])
+                            screenshots_to_delete = []
+                            
+                            if screenshots:
+                                st.markdown("**Screenshots:**")
+                                for i in range(0, len(screenshots), 3):
+                                    cols = st.columns(3)
+                                    for j, col in enumerate(cols):
+                                        if i + j < len(screenshots):
+                                            screenshot = screenshots[i + j]
+                                            with col:
+                                                if os.path.exists(screenshot['file_path']):
+                                                    upload_date = screenshot['uploaded_at'][:10] if screenshot['uploaded_at'] else 'N/A'
+                                                    st.image(screenshot['file_path'], caption=upload_date, width=120)
+                                                    if st.checkbox("🗑️", key=f"del_ss_{screenshot['id']}", help="Delete screenshot"):
+                                                        screenshots_to_delete.append(screenshot)
+                                                else:
+                                                    st.warning(f"⚠️ File not found")
+                            
+                            # Upload new screenshot
+                            st.markdown("**Upload New Screenshot:**")
+                            uploaded_screenshot = st.file_uploader(
+                                "Choose an image",
+                                type=['png', 'jpg', 'jpeg', 'gif', 'bmp'],
+                                key=f"upload_{step['id']}"
+                            )
+                            
+                            # Save changes button
+                            submitted = st.form_submit_button("💾 Save Changes", type="primary", use_container_width=True)
+                            
+                            # Handle form submission
+                            if submitted:
+                                # If delete is checked, delete the step
+                                if delete_checkbox:
                                     try:
                                         success = delete_test_step(step['id'])
                                         if success:
                                             st.success(f"✅ Step {step['step_number']} deleted successfully!")
-                                            del st.session_state[f'delete_step_id_{test_case_id}']
-                                            if f'delete_step_number_{test_case_id}' in st.session_state:
-                                                del st.session_state[f'delete_step_number_{test_case_id}']
                                             st.cache_data.clear()
                                             st.rerun()
                                         else:
                                             st.error("❌ Failed to delete step.")
                                     except Exception as e:
                                         st.error(f"❌ Error deleting step: {str(e)}")
-                            with col_cancel:
-                                if st.button("❌ Cancel", key=f"cancel_del_{step['id']}", use_container_width=True):
-                                    del st.session_state[f'delete_step_id_{test_case_id}']
-                                    if f'delete_step_number_{test_case_id}' in st.session_state:
-                                        del st.session_state[f'delete_step_number_{test_case_id}']
-                                    st.rerun()
-                        
-                        # Edit form (shown when edit button is clicked)
-                        if f'edit_step_id_{test_case_id}' in st.session_state and st.session_state[f'edit_step_id_{test_case_id}'] == step['id']:
-                            st.markdown("---")
-                            st.markdown("### ✏️ Edit Step")
-                            
-                            with st.form(f"edit_step_form_{step['id']}", clear_on_submit=False):
-                                edit_step_number = st.number_input(
-                                    "Step Number *",
-                                    min_value=1,
-                                    value=step['step_number'],
-                                    key=f"edit_step_num_{step['id']}",
-                                    help="Step number in sequence"
-                                )
-                                
-                                edit_description = st.text_area(
-                                    "Step Description *",
-                                    value=step['description'],
-                                    key=f"edit_desc_{step['id']}",
-                                    help="Detailed description of the step",
-                                    height=80
-                                )
-                                
-                                edit_modules = st.text_area(
-                                    "Modules Used",
-                                    value=step['modules'] if step['modules'] else "",
-                                    key=f"edit_modules_{step['id']}",
-                                    help="List the modules or components used in this step",
-                                    height=60
-                                )
-                                
-                                edit_calculation_logic = st.text_area(
-                                    "Calculation Logic",
-                                    value=step['calculation_logic'] if step['calculation_logic'] else "",
-                                    key=f"edit_calc_{step['id']}",
-                                    help="Describe any calculation logic or formulas used",
-                                    height=80
-                                )
-                                
-                                edit_configuration = st.text_area(
-                                    "Configuration Elements",
-                                    value=step['configuration'] if step['configuration'] else "",
-                                    key=f"edit_config_{step['id']}",
-                                    help="List any specific configuration elements required",
-                                    height=80
-                                )
-                                
-                                # Screenshot management
-                                st.markdown("**Screenshots:**")
-                                existing_screenshots = get_screenshots_by_step(step['id'])
-                                
-                                if existing_screenshots:
-                                    st.markdown("**Current Screenshots:**")
-                                    for screenshot in existing_screenshots:
-                                        col_screenshot, col_delete_btn = st.columns([4, 1])
-                                        with col_screenshot:
-                                            if os.path.exists(screenshot['file_path']):
-                                                st.image(screenshot['file_path'], width=150, caption=f"Uploaded: {screenshot['uploaded_at'][:10] if screenshot['uploaded_at'] else 'N/A'}")
-                                            else:
-                                                st.warning(f"⚠️ File not found: {screenshot['file_path']}")
-                                        with col_delete_btn:
-                                            if st.button("🗑️", key=f"delete_screenshot_{screenshot['id']}", help="Delete this screenshot"):
+                                else:
+                                    # Update the step
+                                    try:
+                                        success = update_test_step(
+                                            step_id=step['id'],
+                                            step_number=int(edit_step_number),
+                                            description=edit_description.strip(),
+                                            modules=edit_notes.strip() if edit_notes.strip() else None,
+                                            calculation_logic=None,
+                                            configuration=None
+                                        )
+                                        
+                                        if success:
+                                            # Delete marked screenshots
+                                            for screenshot in screenshots_to_delete:
                                                 try:
-                                                    # Delete file from filesystem
                                                     if os.path.exists(screenshot['file_path']):
                                                         os.remove(screenshot['file_path'])
-                                                    # Delete from database
                                                     delete_screenshot(screenshot['id'])
-                                                    st.success("✅ Screenshot deleted!")
-                                                    st.cache_data.clear()
-                                                    st.rerun()
                                                 except Exception as e:
-                                                    st.error(f"❌ Error deleting screenshot: {str(e)}")
-                                    st.markdown("---")
-                                
-                                st.markdown("**Upload New Screenshot (Optional):**")
-                                uploaded_screenshot = st.file_uploader(
-                                    "Choose an image file",
-                                    type=['png', 'jpg', 'jpeg', 'gif', 'bmp'],
-                                    key=f"edit_screenshot_{step['id']}",
-                                    help="Upload a new screenshot for this step"
-                                )
-                                
-                                col_save, col_cancel_edit = st.columns(2)
-                                with col_save:
-                                    if st.form_submit_button("💾 Save Changes", type="primary", use_container_width=True):
-                                        if not edit_description.strip():
-                                            st.error("❌ Step description is required!")
+                                                    st.warning(f"⚠️ Error deleting screenshot: {str(e)}")
+                                            
+                                            # Upload new screenshot if provided
+                                            if uploaded_screenshot is not None:
+                                                try:
+                                                    screenshot_path = save_screenshot(uploaded_screenshot, test_case_id, step['id'])
+                                                    add_screenshot_to_step(step['id'], screenshot_path)
+                                                    st.success(f"✅ Step {edit_step_number} updated successfully!")
+                                                except Exception as e:
+                                                    st.warning(f"⚠️ Step updated but screenshot upload failed: {str(e)}")
+                                            else:
+                                                st.success(f"✅ Step {edit_step_number} updated successfully!")
+                                            
+                                            st.cache_data.clear()
+                                            st.rerun()
                                         else:
-                                            try:
-                                                success = update_test_step(
-                                                    step_id=step['id'],
-                                                    step_number=int(edit_step_number),
-                                                    description=edit_description.strip(),
-                                                    modules=edit_modules.strip() if edit_modules.strip() else None,
-                                                    calculation_logic=edit_calculation_logic.strip() if edit_calculation_logic.strip() else None,
-                                                    configuration=edit_configuration.strip() if edit_configuration.strip() else None
-                                                )
-                                                
-                                                if success:
-                                                    # Handle screenshot upload if provided
-                                                    if uploaded_screenshot is not None:
-                                                        try:
-                                                            screenshot_path = save_screenshot(uploaded_screenshot, test_case_id, step['id'])
-                                                            add_screenshot_to_step(step['id'], screenshot_path)
-                                                            st.success(f"✅ Step {edit_step_number} updated and screenshot uploaded successfully!")
-                                                        except Exception as e:
-                                                            st.warning(f"⚠️ Step updated but screenshot upload failed: {str(e)}")
-                                                    else:
-                                                        st.success(f"✅ Step {edit_step_number} updated successfully!")
-                                                    
-                                                    del st.session_state[f'edit_step_id_{test_case_id}']
-                                                    st.cache_data.clear()
-                                                    st.rerun()
-                                                else:
-                                                    st.error("❌ Failed to update step.")
-                                            except Exception as e:
-                                                if "UNIQUE constraint failed" in str(e):
-                                                    st.error(f"❌ Step number {edit_step_number} already exists for this test case!")
-                                                else:
-                                                    st.error(f"❌ Error updating step: {str(e)}")
-                                with col_cancel_edit:
-                                    if st.form_submit_button("❌ Cancel", use_container_width=True):
-                                        del st.session_state[f'edit_step_id_{test_case_id}']
-                                        st.rerun()
+                                            st.error("❌ Failed to update step.")
+                                    except Exception as e:
+                                        if "UNIQUE constraint failed" in str(e):
+                                            st.error(f"❌ Step number {edit_step_number} already exists!")
+                                        else:
+                                            st.error(f"❌ Error updating step: {str(e)}")
             
             st.markdown("---")
             
@@ -675,31 +720,13 @@ elif page == "Test Case Details":
                         height=80
                     )
                 
-                st.markdown("**Metadata (Optional):**")
+                st.markdown("**Additional Information (Optional):**")
                 
-                col_modules, col_calc = st.columns(2)
-                
-                with col_modules:
-                    step_modules = st.text_area(
-                        "Modules Used",
-                        placeholder="e.g., Order Management, Compliance Module",
-                        help="List the modules or components used in this step",
-                        height=60
-                    )
-                
-                with col_calc:
-                    step_calculation_logic = st.text_area(
-                        "Calculation Logic",
-                        placeholder="e.g., Formula: X = Y + Z",
-                        help="Describe any calculation logic or formulas used",
-                        height=60
-                    )
-                
-                step_configuration = st.text_area(
-                    "Configuration Elements",
-                    placeholder="e.g., Config setting: enabled, Parameter: value",
-                    help="List any specific configuration elements required",
-                    height=60
+                step_notes = st.text_area(
+                    "Notes",
+                    placeholder="Add any notes, modules used, calculation logic, configuration details, etc.",
+                    help="Add any additional details about this step",
+                    height=120
                 )
                 
                 # Screenshot upload
@@ -729,9 +756,9 @@ elif page == "Test Case Details":
                                     test_case_id=test_case_id,
                                     step_number=int(step_number),
                                     description=step_description.strip(),
-                                    modules=step_modules.strip() if step_modules.strip() else None,
-                                    calculation_logic=step_calculation_logic.strip() if step_calculation_logic.strip() else None,
-                                    configuration=step_configuration.strip() if step_configuration.strip() else None
+                                    modules=step_notes.strip() if step_notes.strip() else None,
+                                    calculation_logic=None,
+                                    configuration=None
                                 )
                                 
                                 if step_id:
@@ -758,7 +785,7 @@ elif page == "Test Case Details":
                                 st.error(f"❌ Error adding step: {str(e)}")
             
             st.markdown("---")
-            st.markdown("💡 **Tip**: Steps are displayed in order by step number. Click 'Edit Step' to add or modify metadata (modules, calculation logic, configuration).")
+            st.markdown("💡 **Tip**: Steps are displayed in order by step number. Open any step to edit it directly, then click '💾 Save Changes' to update.")
 
 # Footer
 st.markdown("---")
