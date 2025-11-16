@@ -11,7 +11,9 @@ from models import (
     create_test_case,
     get_test_case_by_id,
     update_test_case,
-    delete_test_case
+    delete_test_case,
+    get_steps_by_test_case,
+    create_test_step
 )
 import pandas as pd
 
@@ -53,8 +55,8 @@ if 'page' not in st.session_state:
 # Navigation radio button
 page_selection = st.sidebar.radio(
     "Navigation",
-    ["View Test Cases", "Create New Test Case", "Edit Test Case"],
-    index=["View Test Cases", "Create New Test Case", "Edit Test Case"].index(st.session_state['page']),
+    ["View Test Cases", "Create New Test Case", "Edit Test Case", "Test Case Details"],
+    index=["View Test Cases", "Create New Test Case", "Edit Test Case", "Test Case Details"].index(st.session_state['page']) if st.session_state['page'] in ["View Test Cases", "Create New Test Case", "Edit Test Case", "Test Case Details"] else 0,
     label_visibility="collapsed",
     key="nav_radio"
 )
@@ -338,6 +340,129 @@ elif page == "Edit Test Case":
             if st.button("Edit Selected Test Case", type="primary", use_container_width=True):
                 st.session_state['edit_test_case_id'] = test_cases_dict[selected]
                 st.rerun()
+
+elif page == "Test Case Details":
+    st.header("📝 Test Case Details")
+    
+    # Get all test cases for selection
+    test_cases = get_all_test_cases()
+    
+    if len(test_cases) == 0:
+        st.info("📝 No test cases available. Create a test case first!")
+        st.markdown("""
+        ### Getting Started
+        1. Go to **"Create New Test Case"** to create your first test case
+        2. Then come back here to add steps to it
+        """)
+    else:
+        # Test case selection
+        test_cases_dict = {
+            (f"{tc['test_number']} - {tc['description'][:50]}..." if len(tc['description']) > 50 
+             else f"{tc['test_number']} - {tc['description']}"): tc['id'] 
+            for tc in test_cases
+        }
+        
+        selected_tc = st.selectbox(
+            "Select Test Case:",
+            options=list(test_cases_dict.keys()),
+            key="details_test_case_select"
+        )
+        
+        test_case_id = test_cases_dict[selected_tc]
+        test_case = get_test_case_by_id(test_case_id)
+        
+        if test_case:
+            st.markdown("---")
+            
+            # Display test case info
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown(f"**Test Number:** {test_case['test_number']}")
+            with col2:
+                st.markdown(f"**Created:** {test_case['created_at'][:10] if test_case['created_at'] else 'N/A'}")
+            
+            st.markdown(f"**Description:** {test_case['description']}")
+            
+            st.markdown("---")
+            
+            # Get and display steps
+            steps = get_steps_by_test_case(test_case_id)
+            
+            st.subheader(f"📋 Steps ({len(steps)})")
+            
+            if len(steps) == 0:
+                st.info("No steps added yet. Use the form below to add your first step.")
+            else:
+                # Display steps
+                for idx, step in enumerate(steps, 1):
+                    with st.expander(f"Step {step['step_number']}: {step['description'][:50]}..." if len(step['description']) > 50 else f"Step {step['step_number']}: {step['description']}", expanded=False):
+                        st.markdown(f"**Description:** {step['description']}")
+                        if step['modules']:
+                            st.markdown(f"**Modules:** {step['modules']}")
+                        if step['calculation_logic']:
+                            st.markdown(f"**Calculation Logic:** {step['calculation_logic']}")
+                        if step['configuration']:
+                            st.markdown(f"**Configuration:** {step['configuration']}")
+            
+            st.markdown("---")
+            
+            # Add Step Form
+            st.subheader("➕ Add New Step")
+            
+            with st.form("add_step_form", clear_on_submit=True):
+                col_step_num, col_desc = st.columns([1, 3])
+                
+                with col_step_num:
+                    step_number = st.number_input(
+                        "Step Number *",
+                        min_value=1,
+                        value=len(steps) + 1 if steps else 1,
+                        help="Step number in sequence"
+                    )
+                
+                with col_desc:
+                    step_description = st.text_area(
+                        "Step Description *",
+                        placeholder="Describe what this step validates...",
+                        help="Detailed description of the step",
+                        height=80
+                    )
+                
+                submitted = st.form_submit_button("Add Step", type="primary", use_container_width=True)
+                
+                if submitted:
+                    # Validation
+                    if not step_description.strip():
+                        st.error("❌ Step description is required!")
+                    else:
+                        try:
+                            # Check if step number already exists
+                            existing_step_numbers = [s['step_number'] for s in steps]
+                            if step_number in existing_step_numbers:
+                                st.warning(f"⚠️ Step number {step_number} already exists. Consider using a different number.")
+                            else:
+                                # Create step
+                                step_id = create_test_step(
+                                    test_case_id=test_case_id,
+                                    step_number=int(step_number),
+                                    description=step_description.strip()
+                                )
+                                
+                                if step_id:
+                                    st.success(f"✅ Step {step_number} added successfully!")
+                                    st.balloons()
+                                    st.cache_data.clear()
+                                    st.rerun()
+                                else:
+                                    st.error("❌ Failed to add step.")
+                        except Exception as e:
+                            if "UNIQUE constraint failed" in str(e):
+                                st.error(f"❌ Step number {step_number} already exists for this test case!")
+                            else:
+                                st.error(f"❌ Error adding step: {str(e)}")
+            
+            st.markdown("---")
+            st.markdown("💡 **Tip**: Steps will be displayed in order by step number. You can edit steps and add metadata in the next steps.")
 
 # Footer
 st.markdown("---")

@@ -151,15 +151,22 @@ Streamlit-based web application for creating and managing SimCorp Dimension test
 **Goal**: Allow adding steps to a test case
 
 **Tasks**:
-- [ ] Create "View Test Case Details" page
-- [ ] Display steps for selected test case
-- [ ] Add "Add Step" form with: step number, description
-- [ ] Save step to database linked to test case
+- [x] Create "View Test Case Details" page
+- [x] Display steps for selected test case
+- [x] Add "Add Step" form with: step number, description
+- [x] Save step to database linked to test case
+
+**Additional Work Completed**:
+- [x] **Step Display**: Steps displayed in expandable sections showing all metadata fields
+- [x] **Auto-numbering**: Step number auto-suggests next available number
+- [x] **Duplicate Prevention**: Validation to prevent duplicate step numbers
+- [x] **Test Data**: Created TC04 test case with 7 steps for testing purposes
 
 **Validation**:
-- [ ] Can view test case with its steps
-- [ ] Can add new step to test case
-- [ ] Steps display in correct order
+- [x] Can view test case with its steps (verified with TC04)
+- [x] Can add new step to test case
+- [x] Steps display in correct order by step number
+- [x] Step form validation works correctly
 
 **Commit**: `[Frontend] Add step management for test cases`
 
