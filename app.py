@@ -16,9 +16,14 @@ from models import (
     create_test_step,
     get_step_by_id,
     update_test_step,
-    delete_test_step
+    delete_test_step,
+    add_screenshot_to_step,
+    get_screenshots_by_step,
+    delete_screenshot
 )
 import pandas as pd
+import os
+from pathlib import Path
 
 # Page configuration
 st.set_page_config(
@@ -37,6 +42,26 @@ def initialize_db():
 
 # Initialize database
 initialize_db()
+
+# Helper function to save uploaded screenshot
+def save_screenshot(uploaded_file, test_case_id, step_id):
+    """Save uploaded screenshot to the appropriate directory and return the file path."""
+    # Create directory structure: uploads/test_{id}/step_{id}/
+    upload_dir = Path(f"uploads/test_{test_case_id}/step_{step_id}")
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Generate unique filename
+    file_extension = Path(uploaded_file.name).suffix
+    timestamp = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"screenshot_{timestamp}{file_extension}"
+    file_path = upload_dir / filename
+    
+    # Save the file
+    with open(file_path, "wb") as f:
+        f.write(uploaded_file.getbuffer())
+    
+    # Return relative path for database storage
+    return str(file_path)
 
 # Sidebar navigation
 st.sidebar.title("📋 Test Case Documentation")
@@ -436,6 +461,32 @@ elif page == "Test Case Details":
                         else:
                             st.markdown("**Configuration:** *Not specified*")
                         
+                        # Display screenshots
+                        screenshots = get_screenshots_by_step(step['id'])
+                        if screenshots:
+                            st.markdown("---")
+                            st.markdown("**Screenshots:**")
+                            # Display screenshots in a grid (3 per row for compact layout)
+                            for i in range(0, len(screenshots), 3):
+                                cols = st.columns(3)
+                                for j, col in enumerate(cols):
+                                    if i + j < len(screenshots):
+                                        screenshot = screenshots[i + j]
+                                        screenshot_path = screenshot['file_path']
+                                        with col:
+                                            if os.path.exists(screenshot_path):
+                                                # Display small thumbnail (120px)
+                                                upload_date = screenshot['uploaded_at'][:10] if screenshot['uploaded_at'] else 'N/A'
+                                                st.image(
+                                                    screenshot_path, 
+                                                    caption=upload_date, 
+                                                    width=120
+                                                )
+                                            else:
+                                                st.warning(f"⚠️ File not found")
+                        else:
+                            st.markdown("**Screenshots:** *No screenshots uploaded*")
+                        
                         st.markdown("---")
                         
                         # Edit and Delete buttons
@@ -521,6 +572,42 @@ elif page == "Test Case Details":
                                     height=80
                                 )
                                 
+                                # Screenshot management
+                                st.markdown("**Screenshots:**")
+                                existing_screenshots = get_screenshots_by_step(step['id'])
+                                
+                                if existing_screenshots:
+                                    st.markdown("**Current Screenshots:**")
+                                    for screenshot in existing_screenshots:
+                                        col_screenshot, col_delete_btn = st.columns([4, 1])
+                                        with col_screenshot:
+                                            if os.path.exists(screenshot['file_path']):
+                                                st.image(screenshot['file_path'], width=150, caption=f"Uploaded: {screenshot['uploaded_at'][:10] if screenshot['uploaded_at'] else 'N/A'}")
+                                            else:
+                                                st.warning(f"⚠️ File not found: {screenshot['file_path']}")
+                                        with col_delete_btn:
+                                            if st.button("🗑️", key=f"delete_screenshot_{screenshot['id']}", help="Delete this screenshot"):
+                                                try:
+                                                    # Delete file from filesystem
+                                                    if os.path.exists(screenshot['file_path']):
+                                                        os.remove(screenshot['file_path'])
+                                                    # Delete from database
+                                                    delete_screenshot(screenshot['id'])
+                                                    st.success("✅ Screenshot deleted!")
+                                                    st.cache_data.clear()
+                                                    st.rerun()
+                                                except Exception as e:
+                                                    st.error(f"❌ Error deleting screenshot: {str(e)}")
+                                    st.markdown("---")
+                                
+                                st.markdown("**Upload New Screenshot (Optional):**")
+                                uploaded_screenshot = st.file_uploader(
+                                    "Choose an image file",
+                                    type=['png', 'jpg', 'jpeg', 'gif', 'bmp'],
+                                    key=f"edit_screenshot_{step['id']}",
+                                    help="Upload a new screenshot for this step"
+                                )
+                                
                                 col_save, col_cancel_edit = st.columns(2)
                                 with col_save:
                                     if st.form_submit_button("💾 Save Changes", type="primary", use_container_width=True):
@@ -538,7 +625,17 @@ elif page == "Test Case Details":
                                                 )
                                                 
                                                 if success:
-                                                    st.success(f"✅ Step {edit_step_number} updated successfully!")
+                                                    # Handle screenshot upload if provided
+                                                    if uploaded_screenshot is not None:
+                                                        try:
+                                                            screenshot_path = save_screenshot(uploaded_screenshot, test_case_id, step['id'])
+                                                            add_screenshot_to_step(step['id'], screenshot_path)
+                                                            st.success(f"✅ Step {edit_step_number} updated and screenshot uploaded successfully!")
+                                                        except Exception as e:
+                                                            st.warning(f"⚠️ Step updated but screenshot upload failed: {str(e)}")
+                                                    else:
+                                                        st.success(f"✅ Step {edit_step_number} updated successfully!")
+                                                    
                                                     del st.session_state[f'edit_step_id_{test_case_id}']
                                                     st.cache_data.clear()
                                                     st.rerun()
@@ -605,6 +702,15 @@ elif page == "Test Case Details":
                     height=60
                 )
                 
+                # Screenshot upload
+                st.markdown("**Upload Screenshot (Optional):**")
+                uploaded_screenshot = st.file_uploader(
+                    "Choose an image file",
+                    type=['png', 'jpg', 'jpeg', 'gif', 'bmp'],
+                    key=f"add_screenshot_{test_case_id}",
+                    help="Upload a screenshot for this step"
+                )
+                
                 submitted = st.form_submit_button("Add Step", type="primary", use_container_width=True)
                 
                 if submitted:
@@ -629,7 +735,17 @@ elif page == "Test Case Details":
                                 )
                                 
                                 if step_id:
-                                    st.success(f"✅ Step {step_number} added successfully!")
+                                    # Handle screenshot upload if provided
+                                    if uploaded_screenshot is not None:
+                                        try:
+                                            screenshot_path = save_screenshot(uploaded_screenshot, test_case_id, step_id)
+                                            add_screenshot_to_step(step_id, screenshot_path)
+                                            st.success(f"✅ Step {step_number} added with screenshot successfully!")
+                                        except Exception as e:
+                                            st.warning(f"⚠️ Step added but screenshot upload failed: {str(e)}")
+                                    else:
+                                        st.success(f"✅ Step {step_number} added successfully!")
+                                    
                                     st.balloons()
                                     st.cache_data.clear()
                                     st.rerun()
