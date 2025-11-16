@@ -82,23 +82,70 @@ def create_summary_sheet(sheet, test_cases=None):
     
     # Row 4: Headers (starting in column B to match reference format)
     headers = ["Test Case ID", "Test Case Name", "Execution Status", "Outcome"]
-    header_font = Font(bold=True, size=11)
+    header_font = Font(bold=True, size=11, color="FFFFFF")  # White text
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")  # Blue background
+    header_alignment = Alignment(horizontal="center", vertical="center")
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
     
     for col_num, header in enumerate(headers, 2):  # Start from column B (2)
         cell = sheet.cell(row=4, column=col_num)
         cell.value = header
         cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+        cell.border = thin_border
     
     # Row 5 onwards: Test case data
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
     for row_num, test_case in enumerate(test_cases, 5):
-        # Column B: Test Case ID
-        sheet.cell(row=row_num, column=2).value = test_case['test_number']
+        # Column B: Test Case ID (with hyperlink to test case sheet)
+        test_case_id_cell = sheet.cell(row=row_num, column=2)
+        test_case_id_cell.value = test_case['test_number']
+        test_case_id_cell.border = thin_border
+        
+        # Create hyperlink to test case sheet
+        sheet_name = f"{test_case['test_number']}"
+        if len(sheet_name) > 31:
+            sheet_name = sheet_name[:28] + "..."
+        # Handle duplicate sheet names (same logic as in create_excel_export)
+        base_name = sheet_name
+        counter = 1
+        original_name = sheet_name
+        while sheet_name in [s.title for s in sheet.parent.worksheets if s != sheet]:
+            sheet_name = f"{base_name[:26]}_{counter}"
+            counter += 1
+        # Use original name for hyperlink (Excel will handle it)
+        test_case_id_cell.hyperlink = f"#{sheet_name}!A1"
+        test_case_id_cell.font = Font(color="0563C1", underline="single")  # Blue, underlined
+        
         # Column C: Test Case Name (Description)
-        sheet.cell(row=row_num, column=3).value = test_case['description']
+        desc_cell = sheet.cell(row=row_num, column=3)
+        desc_cell.value = test_case['description']
+        desc_cell.border = thin_border
+        desc_cell.alignment = Alignment(wrap_text=True, vertical="top")
+        
         # Column D: Execution Status (default to "Completed" or leave empty)
-        sheet.cell(row=row_num, column=4).value = "Completed"
+        status_cell = sheet.cell(row=row_num, column=4)
+        status_cell.value = "Completed"
+        status_cell.border = thin_border
+        status_cell.alignment = Alignment(horizontal="center")
+        
         # Column E: Outcome (default to "Pass" or leave empty)
-        sheet.cell(row=row_num, column=5).value = "Pass"
+        outcome_cell = sheet.cell(row=row_num, column=5)
+        outcome_cell.value = "Pass"
+        outcome_cell.border = thin_border
+        outcome_cell.alignment = Alignment(horizontal="center")
     
     # Auto-adjust column widths
     sheet.column_dimensions['B'].width = 20
@@ -118,7 +165,10 @@ def create_test_case_sheet(sheet, test_case):
     
     # Row 10: Navigation links (matching reference format)
     sheet.cell(row=10, column=10).value = "Go to"
-    sheet.cell(row=10, column=11).value = "[Summary]"
+    summary_link_cell = sheet.cell(row=10, column=11)
+    summary_link_cell.value = "[Summary]"
+    summary_link_cell.hyperlink = "#Summary!A1"
+    summary_link_cell.font = Font(color="0563C1", underline="single")  # Blue, underlined
     
     # Get steps
     steps = get_steps_by_test_case(test_case['id'])
@@ -127,19 +177,40 @@ def create_test_case_sheet(sheet, test_case):
         # Start steps from row 6 (matching reference format)
         current_row = 6
         
+        # Define borders and formatting
+        thin_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+        header_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")  # Light blue
+        
         for step in steps:
             # Step description in column B (format: "1  Description")
             step_cell = sheet.cell(row=current_row, column=2)
             step_cell.value = f"{step['step_number']}  {step['description']}"
             step_cell.font = Font(bold=True, size=11)
+            step_cell.fill = header_fill
+            step_cell.border = thin_border
+            step_cell.alignment = Alignment(wrap_text=True, vertical="top")
             
             # Add metadata in adjacent columns if available
             if step.get('modules'):
-                sheet.cell(row=current_row, column=3).value = f"Modules: {step['modules']}"
+                modules_cell = sheet.cell(row=current_row, column=3)
+                modules_cell.value = f"Modules: {step['modules']}"
+                modules_cell.border = thin_border
+                modules_cell.alignment = Alignment(wrap_text=True, vertical="top")
             if step.get('calculation_logic'):
-                sheet.cell(row=current_row, column=4).value = f"Calculation: {step['calculation_logic']}"
+                calc_cell = sheet.cell(row=current_row, column=4)
+                calc_cell.value = f"Calculation: {step['calculation_logic']}"
+                calc_cell.border = thin_border
+                calc_cell.alignment = Alignment(wrap_text=True, vertical="top")
             if step.get('configuration'):
-                sheet.cell(row=current_row, column=5).value = f"Config: {step['configuration']}"
+                config_cell = sheet.cell(row=current_row, column=5)
+                config_cell.value = f"Config: {step['configuration']}"
+                config_cell.border = thin_border
+                config_cell.alignment = Alignment(wrap_text=True, vertical="top")
             
             # Get screenshots for this step
             screenshots = get_screenshots_by_step(step['id'])
@@ -149,23 +220,34 @@ def create_test_case_sheet(sheet, test_case):
                 image_row = current_row + 1
                 image_col = 2  # Start in column B
                 
-                for screenshot in screenshots:
+                # Add spacing row before screenshots
+                sheet.row_dimensions[image_row].height = 10
+                image_row += 1
+                
+                for idx, screenshot in enumerate(screenshots):
                     screenshot_path = screenshot['file_path']
                     
                     # Check if file exists
                     if os.path.exists(screenshot_path):
                         try:
-                            # Load and resize image if needed
+                            # Load and resize image for better layout
                             img = XLImage(screenshot_path)
                             
-                            # Resize image to fit nicely (max width 500px, maintain aspect ratio)
-                            max_width = 500
+                            # Resize image to fit nicely (max width 600px, maintain aspect ratio)
+                            max_width = 600
                             if img.width > max_width:
                                 ratio = max_width / img.width
                                 img.width = int(img.width * ratio)
                                 img.height = int(img.height * ratio)
                             
-                            # Anchor image to cell (column B)
+                            # Ensure minimum size for readability
+                            min_width = 200
+                            if img.width < min_width:
+                                ratio = min_width / img.width
+                                img.width = int(img.width * ratio)
+                                img.height = int(img.height * ratio)
+                            
+                            # Anchor image to cell (column B) with slight offset for spacing
                             cell_ref = f"{get_column_letter(image_col)}{image_row}"
                             img.anchor = cell_ref
                             
@@ -173,19 +255,31 @@ def create_test_case_sheet(sheet, test_case):
                             sheet.add_image(img)
                             
                             # Adjust row height to accommodate image (convert pixels to points: 1 point ≈ 1.33 pixels)
-                            row_height = max(int(img.height * 0.75), 100)
+                            # Add extra space for padding
+                            row_height = max(int(img.height * 0.75) + 20, 120)
                             sheet.row_dimensions[image_row].height = row_height
+                            
+                            # Add spacing row after each image (except last)
+                            if idx < len(screenshots) - 1:
+                                image_row += 1
+                                sheet.row_dimensions[image_row].height = 10
                             
                             # Move to next row for next image (stack vertically)
                             image_row += 1
                             
                         except Exception as e:
                             # If image can't be loaded, add text reference
-                            sheet.cell(row=image_row, column=image_col).value = f"[Image: {os.path.basename(screenshot_path)}]"
+                            error_cell = sheet.cell(row=image_row, column=image_col)
+                            error_cell.value = f"[Image: {os.path.basename(screenshot_path)}]"
+                            error_cell.font = Font(italic=True, color="808080")
+                            error_cell.border = thin_border
                             image_row += 1
                     else:
                         # File doesn't exist, add text reference
-                        sheet.cell(row=image_row, column=image_col).value = f"[Image not found: {os.path.basename(screenshot_path)}]"
+                        missing_cell = sheet.cell(row=image_row, column=image_col)
+                        missing_cell.value = f"[Image not found: {os.path.basename(screenshot_path)}]"
+                        missing_cell.font = Font(italic=True, color="FF0000")
+                        missing_cell.border = thin_border
                         image_row += 1
                 
                 # Move to next step (leave space after images)
