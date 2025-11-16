@@ -18,15 +18,15 @@ Streamlit-based web application for creating and managing SimCorp Dimension test
 **Goal**: Initialize project structure and dependencies
 
 **Tasks**:
-- [ ] Create `requirements.txt` with dependencies
-- [ ] Create `.gitignore`
-- [ ] Create `README.md`
-- [ ] Initialize git repo and connect to remote
+- [x] Create `requirements.txt` with dependencies
+- [x] Create `.gitignore`
+- [x] Create `README.md`
+- [x] Initialize git repo and connect to remote
 
 **Validation**:
-- [ ] Run `pip install -r requirements.txt` successfully
-- [ ] Git remote configured correctly
-- [ ] Project structure created
+- [x] Run `pip install -r requirements.txt` successfully
+- [x] Git remote configured correctly
+- [x] Project structure created
 
 **Commit**: `[Setup] Initialize project structure and dependencies`
 
@@ -176,15 +176,15 @@ Streamlit-based web application for creating and managing SimCorp Dimension test
 **Goal**: Allow editing steps and adding metadata fields
 
 **Tasks**:
-- [ ] Add edit button for each step
-- [ ] Expand step form to include: modules, calculation_logic, configuration (text areas)
-- [ ] Update step edit form with all fields
-- [ ] Display metadata in step view
+- [x] Add edit button for each step
+- [x] Expand step form to include: modules, calculation_logic, configuration (text areas)
+- [x] Update step edit form with all fields
+- [x] Display metadata in step view
 
 **Validation**:
-- [ ] Can edit step description
-- [ ] Can add/edit modules, calculation logic, configuration
-- [ ] All metadata displays correctly
+- [x] Can edit step description
+- [x] Can add/edit modules, calculation logic, configuration
+- [x] All metadata displays correctly
 
 **Commit**: `[Frontend] Add metadata fields to steps (modules, logic, config)`
 
@@ -194,17 +194,17 @@ Streamlit-based web application for creating and managing SimCorp Dimension test
 **Goal**: Attach screenshots to steps
 
 **Tasks**:
-- [ ] Create `uploads/` directory structure
-- [ ] Add file uploader to step form
-- [ ] Save uploaded images to `uploads/test_{id}/step_{id}/`
-- [ ] Store file path in database
-- [ ] Display screenshots in step view
+- [x] Create `uploads/` directory structure
+- [x] Add file uploader to step form
+- [x] Save uploaded images to `uploads/test_{id}/step_{id}/`
+- [x] Store file path in database
+- [x] Display screenshots in step view
 
 **Validation**:
-- [ ] Can upload image file
-- [ ] Image saved to correct location
-- [ ] Image displays in step details
-- [ ] Multiple screenshots per step work
+- [x] Can upload image file
+- [x] Image saved to correct location
+- [x] Image displays in step details
+- [x] Multiple screenshots per step work
 
 **Commit**: `[Frontend] Add screenshot upload and display functionality`
 
@@ -214,17 +214,17 @@ Streamlit-based web application for creating and managing SimCorp Dimension test
 **Goal**: Create Excel export function
 
 **Tasks**:
-- [ ] Create `excel_export.py` module
-- [ ] Use openpyxl to create workbook
-- [ ] Create summary sheet with test case list
-- [ ] Create one sheet per test case
-- [ ] Add basic formatting (headers, borders)
+- [x] Create `excel_export.py` module
+- [x] Use openpyxl to create workbook
+- [x] Create summary sheet with test case list
+- [x] Create one sheet per test case
+- [x] Add basic formatting (headers, borders)
 
 **Validation**:
-- [ ] Can generate Excel file
-- [ ] Summary sheet shows all test cases
-- [ ] Each test case has its own sheet
-- [ ] File downloads correctly
+- [x] Can generate Excel file
+- [x] Summary sheet shows all test cases
+- [x] Each test case has its own sheet
+- [x] File downloads correctly
 
 **Commit**: `[Backend] Add Excel export functionality`
 
@@ -234,37 +234,37 @@ Streamlit-based web application for creating and managing SimCorp Dimension test
 **Goal**: Export all test case data to Excel
 
 **Tasks**:
-- [ ] Export test case details to each sheet
-- [ ] Export steps with all metadata
-- [ ] Add screenshot file paths/links to Excel
-- [ ] Format Excel with proper columns and styling
-- [ ] Add export button in Streamlit UI
+- [x] Export test case details to each sheet
+- [x] Export steps with all metadata
+- [x] Add screenshot file paths/links to Excel (embedded as images)
+- [x] Format Excel with proper columns and styling
+- [x] Add export button in Streamlit UI
 
 **Validation**:
-- [ ] Excel contains all test case data
-- [ ] Steps are properly formatted
-- [ ] Metadata (modules, logic, config) included
-- [ ] Screenshot paths are correct
+- [x] Excel contains all test case data
+- [x] Steps are properly formatted
+- [x] Metadata (modules, logic, config) included
+- [x] Screenshots embedded as images in Excel
 
 **Commit**: `[Backend] Complete Excel export with all data and screenshots`
 
 ---
 
-### Step 10.5: Selective Excel Export ⏭️
+### Step 10.5: Selective Excel Export ✅
 **Goal**: Allow users to select which test cases to export
 
 **Tasks**:
-- [ ] Add "Export" column with checkboxes to "All Test Cases" table
-- [ ] Track selected test cases in session state
-- [ ] Modify Excel export function to accept list of test case IDs
-- [ ] Update export button to only export selected test cases
+- [x] Add "Export" column with checkboxes to "All Test Cases" table
+- [x] Track selected test cases in session state
+- [x] Modify Excel export function to accept list of test case IDs
+- [x] Update export button to only export selected test cases
 - [ ] Add "Select All" / "Deselect All" functionality (optional)
 
 **Validation**:
-- [ ] Checkboxes appear in "All Test Cases" table
-- [ ] Can select/deselect individual test cases
-- [ ] Export only includes selected test cases
-- [ ] Excel file contains only selected test cases
+- [x] Checkboxes appear in "All Test Cases" table
+- [x] Can select/deselect individual test cases
+- [x] Export only includes selected test cases
+- [x] Excel file contains only selected test cases
 
 **Commit**: `[Frontend] Add selective export with checkboxes for test cases`
 
@@ -274,16 +274,19 @@ Streamlit-based web application for creating and managing SimCorp Dimension test
 **Goal**: Improve user experience
 
 **Tasks**:
-- [ ] Improve navigation between pages
-- [ ] Add confirmation dialogs for delete actions
+- [x] Improve navigation between pages
+- [x] Add confirmation dialogs for delete actions
 - [ ] Add search/filter for test cases
-- [ ] Improve styling and layout
-- [ ] Add page titles and headers
+- [x] Improve styling and layout
+- [x] Add page titles and headers
+- [x] Add unsaved changes warning when navigating away
+- [x] Add full-size screenshot viewing
+- [x] Add auto-suggestion for test numbers
 
 **Validation**:
-- [ ] Navigation is intuitive
-- [ ] All features accessible easily
-- [ ] UI is clean and professional
+- [x] Navigation is intuitive
+- [x] All features accessible easily
+- [x] UI is clean and professional
 
 **Commit**: `[Frontend] Polish UI and improve navigation`
 
