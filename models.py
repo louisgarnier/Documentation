@@ -63,10 +63,18 @@ def init_database():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             step_id INTEGER NOT NULL,
             file_path TEXT NOT NULL,
+            screenshot_name TEXT,
             uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (step_id) REFERENCES test_steps(id) ON DELETE CASCADE
         )
     """)
+    
+    # Add screenshot_name column if it doesn't exist (migration for existing databases)
+    try:
+        cursor.execute("ALTER TABLE step_screenshots ADD COLUMN screenshot_name TEXT")
+    except sqlite3.OperationalError:
+        # Column already exists, ignore
+        pass
     
     conn.commit()
     conn.close()
@@ -212,14 +220,14 @@ def delete_test_step(step_id: int) -> bool:
 
 
 # Screenshot Functions
-def add_screenshot_to_step(step_id: int, file_path: str) -> int:
+def add_screenshot_to_step(step_id: int, file_path: str, screenshot_name: Optional[str] = None) -> int:
     """Add a screenshot to a step and return the screenshot ID."""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        INSERT INTO step_screenshots (step_id, file_path)
-        VALUES (?, ?)
-    """, (step_id, file_path))
+        INSERT INTO step_screenshots (step_id, file_path, screenshot_name)
+        VALUES (?, ?, ?)
+    """, (step_id, file_path, screenshot_name))
     screenshot_id = cursor.lastrowid
     conn.commit()
     conn.close()
@@ -239,6 +247,21 @@ def get_screenshots_by_step(step_id: int) -> List[Dict]:
     rows = cursor.fetchall()
     conn.close()
     return [dict(row) for row in rows]
+
+
+def update_screenshot_name(screenshot_id: int, screenshot_name: Optional[str]) -> bool:
+    """Update the name of a screenshot."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE step_screenshots
+        SET screenshot_name = ?
+        WHERE id = ?
+    """, (screenshot_name, screenshot_id))
+    success = cursor.rowcount > 0
+    conn.commit()
+    conn.close()
+    return success
 
 
 def delete_screenshot(screenshot_id: int) -> bool:

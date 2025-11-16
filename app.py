@@ -299,7 +299,7 @@ if page == "All Test Cases" or page == "View Test Cases":  # Support both for ba
 
 elif page == "Create New Test Case":
     # Back button
-    if st.button("← Back to All Test Cases", key="back_from_create"):
+    if st.button("← Back to All Test Cases", key="back_from_create", use_container_width=True):
         st.session_state['page'] = "All Test Cases"
         st.rerun()
     
@@ -362,7 +362,7 @@ elif page == "Create New Test Case":
             "Description *",
             placeholder="Enter a detailed description of the test case...",
             help="Describe what this test case validates",
-            height=100
+            height=120
         )
         
         submitted = st.form_submit_button("Create Test Case", type="primary", use_container_width=True)
@@ -405,7 +405,21 @@ elif page == "Create New Test Case":
     """)
 
 elif page == "Test Case Details":
-    st.header("📝 Test Case Details")
+    # Header with save and back buttons
+    col_header, col_save, col_back = st.columns([2, 1, 1])
+    with col_header:
+        st.header("📝 Test Case Details")
+    with col_save:
+        st.write("")  # Spacing
+        save_clicked = st.button("💾 Save", key="save_header", use_container_width=True, type="primary")
+    with col_back:
+        st.write("")  # Spacing
+        if st.button("← Back to All Test Cases", key="back_to_all_header", use_container_width=True):
+            # Clear any edit mode flags
+            if 'view_test_case_id' in st.session_state:
+                del st.session_state['view_test_case_id']
+            st.session_state['page'] = "All Test Cases"
+            st.rerun()
     
     # Get all test cases for selection
     test_cases = get_all_test_cases()
@@ -418,7 +432,7 @@ elif page == "Test Case Details":
         2. Then come back here to add steps to it
         """)
         # Back button (no unsaved changes to check)
-        if st.button("← Back to All Test Cases", key="back_to_all_empty"):
+        if st.button("← Back to All Test Cases", key="back_to_all_empty", use_container_width=True):
             st.session_state['page'] = "All Test Cases"
             st.rerun()
     else:
@@ -451,154 +465,78 @@ elif page == "Test Case Details":
         test_case_id = test_cases_dict[selected_tc]
         test_case = get_test_case_by_id(test_case_id)
         
-        # Check for unsaved changes function
-        def has_unsaved_changes(tc_id):
-            """Check if there are unsaved changes in the current test case."""
-            edit_mode_key = f'edit_test_case_details_{tc_id}'
-            return st.session_state.get(edit_mode_key, False)
-        
-        # Back button with unsaved changes check (placed after test case is selected)
-        if st.button("← Back to All Test Cases", key="back_to_all"):
-            # Check for unsaved changes
-            if has_unsaved_changes(test_case_id):
-                # Set flag to show warning
-                st.session_state['show_unsaved_warning'] = True
-                st.session_state['pending_navigation'] = True
-                st.session_state['warning_test_case_id'] = test_case_id
-                st.rerun()
-            else:
-                # No unsaved changes, proceed with navigation
-                if 'view_test_case_id' in st.session_state:
-                    del st.session_state['view_test_case_id']
-                if 'show_unsaved_warning' in st.session_state:
-                    del st.session_state['show_unsaved_warning']
-                if 'pending_navigation' in st.session_state:
-                    del st.session_state['pending_navigation']
-                if 'warning_test_case_id' in st.session_state:
-                    del st.session_state['warning_test_case_id']
-                st.session_state['page'] = "All Test Cases"
-                st.rerun()
-        
-        # Show unsaved changes warning if needed
-        if st.session_state.get('show_unsaved_warning', False) and st.session_state.get('pending_navigation', False):
-            warning_tc_id = st.session_state.get('warning_test_case_id', test_case_id)
-            st.warning("⚠️ **You have unsaved changes!** Please save or cancel your edits before leaving this page.")
-            col_save, col_discard, col_cancel = st.columns(3)
-            with col_save:
-                if st.button("💾 Save & Go Back", key="save_and_back", type="primary", use_container_width=True):
-                    st.info("💡 Please click '💾 Save Changes' in the edit form below, then click '← Back to All Test Cases' again.")
-            with col_discard:
-                if st.button("🗑️ Discard Changes", key="discard_and_back", use_container_width=True):
-                    # Exit edit mode
-                    if warning_tc_id:
-                        edit_mode_key = f'edit_test_case_details_{warning_tc_id}'
-                        st.session_state[edit_mode_key] = False
-                    
-                    # Clear warning and navigate
-                    del st.session_state['show_unsaved_warning']
-                    del st.session_state['pending_navigation']
-                    if 'warning_test_case_id' in st.session_state:
-                        del st.session_state['warning_test_case_id']
-                    if 'view_test_case_id' in st.session_state:
-                        del st.session_state['view_test_case_id']
-                    st.session_state['page'] = "All Test Cases"
-                    st.rerun()
-            with col_cancel:
-                if st.button("❌ Stay on Page", key="stay_on_page", use_container_width=True):
-                    del st.session_state['show_unsaved_warning']
-                    del st.session_state['pending_navigation']
-                    if 'warning_test_case_id' in st.session_state:
-                        del st.session_state['warning_test_case_id']
-                    st.rerun()
-            st.markdown("---")
-        
         if test_case:
             st.markdown("---")
             
-            # Check if we're in edit mode
-            edit_mode_key = f'edit_test_case_details_{test_case_id}'
-            is_editing = st.session_state.get(edit_mode_key, False)
+            # Always show editable fields (no edit mode toggle)
+            col_info1, col_info2 = st.columns(2)
+            with col_info1:
+                test_number = st.text_input(
+                    "Test Number *",
+                    value=test_case['test_number'],
+                    key=f"edit_tc_num_{test_case_id}",
+                    help="Enter a unique test case number"
+                )
+            with col_info2:
+                created_date = test_case['created_at'][:10] if test_case['created_at'] else 'N/A'
+                st.text_input(
+                    "Created",
+                    value=created_date,
+                    key=f"edit_tc_created_{test_case_id}",
+                    disabled=True,
+                    help="Creation date (cannot be changed)"
+                )
             
-            if not is_editing:
-                # Display test case info (view mode)
-                col1, col2 = st.columns([3, 1])
-                with col1:
-                    col_info1, col_info2 = st.columns(2)
-                    with col_info1:
-                        st.markdown(f"**Test Number:** {test_case['test_number']}")
-                    with col_info2:
-                        st.markdown(f"**Created:** {test_case['created_at'][:10] if test_case['created_at'] else 'N/A'}")
-                    st.markdown(f"**Description:** {test_case['description']}")
-                with col2:
-                    if st.button("✏️ Edit Test Case", key=f"edit_tc_{test_case_id}", use_container_width=True):
-                        st.session_state[edit_mode_key] = True
-                        st.rerun()
-            else:
-                # Edit mode
-                st.markdown("### ✏️ Edit Test Case")
+            description = st.text_area(
+                "Description *",
+                value=test_case['description'],
+                key=f"edit_tc_desc_{test_case_id}",
+                help="Describe what this test case validates",
+                height=120
+            )
+            
+            st.write("")  # Spacing
+            
+            # Handle save from header button
+            if save_clicked:
+                # Get current values from session state
+                test_number_val = st.session_state.get(f"edit_tc_num_{test_case_id}", test_case['test_number'])
+                description_val = st.session_state.get(f"edit_tc_desc_{test_case_id}", test_case['description'])
                 
-                with st.form(f"edit_test_case_form_{test_case_id}", clear_on_submit=False):
-                    test_number = st.text_input(
-                        "Test Number *",
-                        value=test_case['test_number'],
-                        key=f"edit_tc_num_{test_case_id}",
-                        help="Enter a unique test case number"
-                    )
-                    
-                    description = st.text_area(
-                        "Description *",
-                        value=test_case['description'],
-                        key=f"edit_tc_desc_{test_case_id}",
-                        help="Describe what this test case validates",
-                        height=100
-                    )
-                    
-                    st.markdown(f"**Created:** {test_case['created_at'][:10] if test_case['created_at'] else 'N/A'} *(cannot be changed)*")
-                    
-                    col_save, col_cancel = st.columns(2)
-                    with col_save:
-                        submitted = st.form_submit_button("💾 Save Changes", type="primary", use_container_width=True)
-                    with col_cancel:
-                        cancelled = st.form_submit_button("❌ Cancel", use_container_width=True)
-                    
-                    if submitted:
-                        # Validation
-                        if not test_number.strip():
-                            st.error("❌ Test Number is required!")
-                        elif not description.strip():
-                            st.error("❌ Description is required!")
+                # Validation
+                if not test_number_val.strip():
+                    st.error("❌ Test Number is required!")
+                elif not description_val.strip():
+                    st.error("❌ Description is required!")
+                else:
+                    try:
+                        # Update test case
+                        success = update_test_case(
+                            test_case_id=test_case_id,
+                            test_number=test_number_val.strip(),
+                            description=description_val.strip()
+                        )
+                        
+                        if success:
+                            st.success(f"✅ Test case '{test_number_val}' updated successfully!")
+                            st.cache_data.clear()
+                            st.rerun()
                         else:
-                            try:
-                                # Update test case
-                                success = update_test_case(
-                                    test_case_id=test_case_id,
-                                    test_number=test_number.strip(),
-                                    description=description.strip()
-                                )
-                                
-                                if success:
-                                    st.success(f"✅ Test case '{test_number}' updated successfully!")
-                                    st.session_state[edit_mode_key] = False
-                                    st.cache_data.clear()
-                                    st.rerun()
-                                else:
-                                    st.error("❌ Failed to update test case.")
-                            except Exception as e:
-                                if "UNIQUE constraint failed" in str(e):
-                                    st.error(f"❌ Test case number '{test_number}' already exists! Please use a different number.")
-                                else:
-                                    st.error(f"❌ Error updating test case: {str(e)}")
-                    
-                    if cancelled:
-                        st.session_state[edit_mode_key] = False
-                        st.rerun()
+                            st.error("❌ Failed to update test case.")
+                    except Exception as e:
+                        if "UNIQUE constraint failed" in str(e):
+                            st.error(f"❌ Test case number '{test_number_val}' already exists! Please use a different number.")
+                        else:
+                            st.error(f"❌ Error updating test case: {str(e)}")
             
             st.markdown("---")
+            st.write("")  # Spacing
             
             # Get and display steps
             steps = get_steps_by_test_case(test_case_id)
             
             st.subheader(f"📋 Steps ({len(steps)})")
+            st.write("")  # Spacing
             
             if len(steps) == 0:
                 st.info("No steps added yet. Use the form below to add your first step.")
@@ -609,34 +547,37 @@ elif page == "Test Case Details":
                     
                     with st.expander(f"Step {step['step_number']}", expanded=False):
                         with st.form(f"step_form_{step['id']}", clear_on_submit=False):
-                            # Editable step number
-                            col_num, col_del = st.columns([3, 1])
-                            with col_num:
-                                edit_step_number = st.number_input(
-                                    "Step Number",
-                                    min_value=1,
-                                    value=step['step_number'],
-                                    key=f"step_num_{step['id']}"
+                            # New layout: Description (left, single row) | Step Number + Delete (right, small)
+                            col_desc, col_num_del = st.columns([4, 1])
+                            with col_desc:
+                                edit_description = st.text_input(
+                                    "Description",
+                                    value=step['description'],
+                                    key=f"desc_{step['id']}",
+                                    help="Main description of what this step validates"
                                 )
-                            with col_del:
-                                st.write("")  # Spacing
-                                st.write("")  # Spacing
-                                delete_checkbox = st.checkbox("🗑️ Delete", key=f"delete_{step['id']}")
+                            with col_num_del:
+                                col_step, col_del = st.columns([2, 1])
+                                with col_step:
+                                    edit_step_number = st.number_input(
+                                        "Step #",
+                                        min_value=1,
+                                        value=step['step_number'],
+                                        key=f"step_num_{step['id']}",
+                                        help="Step number"
+                                    )
+                                with col_del:
+                                    st.write("")  # Spacing
+                                    st.write("")  # Spacing
+                                    delete_checkbox = st.checkbox("🗑️ Delete", key=f"delete_{step['id']}")
                             
-                            # Editable description
-                            edit_description = st.text_area(
-                                "Description",
-                                value=step['description'],
-                                key=f"desc_{step['id']}",
-                                height=80
-                            )
-                            
-                            # Editable notes
+                            # Notes field (full-width, below Description and Step Number)
                             edit_notes = st.text_area(
                                 "Notes",
                                 value=step['modules'] if step['modules'] else "",
                                 key=f"notes_{step['id']}",
-                                height=100
+                                height=150,
+                                help="Add notes, modules, calculation logic, configuration"
                             )
                             
                             # Display screenshots
@@ -660,11 +601,11 @@ elif page == "Test Case Details":
                                                     st.warning(f"⚠️ File not found")
                             
                             # Upload new screenshot
-                            st.markdown("**Upload New Screenshot:**")
                             uploaded_screenshot = st.file_uploader(
-                                "Choose an image",
+                                "Add files",
                                 type=['png', 'jpg', 'jpeg', 'gif', 'bmp'],
-                                key=f"upload_{step['id']}"
+                                key=f"upload_{step['id']}",
+                                help="PNG, JPG, JPEG, GIF, BMP • Limit 200MB per file"
                             )
                             
                             # Save changes button
@@ -697,6 +638,7 @@ elif page == "Test Case Details":
                                         )
                                         
                                         if success:
+                                            
                                             # Delete marked screenshots
                                             for screenshot in screenshots_to_delete:
                                                 try:
@@ -729,44 +671,46 @@ elif page == "Test Case Details":
             
             st.markdown("---")
             
+            st.write("")  # Spacing
+            st.markdown("---")
+            st.write("")  # Spacing
+            
             # Add Step Form
             st.subheader("➕ Add New Step")
+            st.write("")  # Spacing
             
             with st.form("add_step_form", clear_on_submit=True):
-                col_step_num, col_desc = st.columns([1, 3])
-                
-                with col_step_num:
+                # New layout: Description (left, single row) | Step Number (right, small)
+                col_desc, col_num = st.columns([4, 1])
+                with col_desc:
+                    step_description = st.text_input(
+                        "Step Description *",
+                        placeholder="Describe what this step validates...",
+                        help="Detailed description of the step"
+                    )
+                with col_num:
                     step_number = st.number_input(
-                        "Step Number *",
+                        "Step #",
                         min_value=1,
                         value=len(steps) + 1 if steps else 1,
                         help="Step number in sequence"
                     )
                 
-                with col_desc:
-                    step_description = st.text_area(
-                        "Step Description *",
-                        placeholder="Describe what this step validates...",
-                        help="Detailed description of the step",
-                        height=80
-                    )
-                
+                # Notes field (full-width, below Description and Step Number)
                 st.markdown("**Additional Information (Optional):**")
-                
                 step_notes = st.text_area(
                     "Notes",
                     placeholder="Add any notes, modules used, calculation logic, configuration details, etc.",
                     help="Add any additional details about this step",
-                    height=120
+                    height=150
                 )
                 
                 # Screenshot upload
-                st.markdown("**Upload Screenshot (Optional):**")
                 uploaded_screenshot = st.file_uploader(
-                    "Choose an image file",
+                    "Add files",
                     type=['png', 'jpg', 'jpeg', 'gif', 'bmp'],
                     key=f"add_screenshot_{test_case_id}",
-                    help="Upload a screenshot for this step"
+                    help="PNG, JPG, JPEG, GIF, BMP • Limit 200MB per file"
                 )
                 
                 submitted = st.form_submit_button("Add Step", type="primary", use_container_width=True)
