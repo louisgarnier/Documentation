@@ -5,7 +5,7 @@ A web application for creating and managing SimCorp Dimension test case document
 """
 
 import streamlit as st
-from models import init_database, get_all_test_cases
+from models import init_database, get_all_test_cases, create_test_case
 import pandas as pd
 
 # Page configuration
@@ -84,12 +84,58 @@ if page == "View Test Cases":
 
 elif page == "Create New Test Case":
     st.header("➕ Create New Test Case")
-    st.info("🚧 Test case creation form will be implemented in Step 4")
+    st.markdown("Fill in the details below to create a new test case.")
+    
+    # Create form
+    with st.form("create_test_case_form", clear_on_submit=True):
+        test_number = st.text_input(
+            "Test Number *",
+            placeholder="e.g., TC-001, TC-IMPL-001",
+            help="Enter a unique test case number"
+        )
+        
+        description = st.text_area(
+            "Description *",
+            placeholder="Enter a detailed description of the test case...",
+            help="Describe what this test case validates",
+            height=100
+        )
+        
+        submitted = st.form_submit_button("Create Test Case", type="primary", use_container_width=True)
+        
+        if submitted:
+            # Validation
+            if not test_number.strip():
+                st.error("❌ Test Number is required!")
+            elif not description.strip():
+                st.error("❌ Description is required!")
+            else:
+                try:
+                    # Create test case
+                    test_case_id = create_test_case(
+                        test_number=test_number.strip(),
+                        description=description.strip()
+                    )
+                    
+                    if test_case_id:
+                        st.success(f"✅ Test case '{test_number}' created successfully!")
+                        st.balloons()
+                        st.info("💡 Switch to 'View Test Cases' to see your new test case.")
+                        
+                        # Clear cache to refresh the list
+                        st.cache_data.clear()
+                except Exception as e:
+                    if "UNIQUE constraint failed" in str(e):
+                        st.error(f"❌ Test case number '{test_number}' already exists! Please use a different number.")
+                    else:
+                        st.error(f"❌ Error creating test case: {str(e)}")
+    
+    st.markdown("---")
+    st.markdown("### 📝 Notes")
     st.markdown("""
-    This page will allow you to:
-    - Enter test case number
-    - Add test case description
-    - Save the test case to the database
+    - **Test Number**: Must be unique. Use a consistent naming convention (e.g., TC-001, TC-IMPL-001)
+    - **Description**: Provide a clear description of what this test case validates
+    - After creating, you can add steps, screenshots, and metadata to the test case
     """)
 
 # Footer
