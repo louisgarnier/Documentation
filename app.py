@@ -17,6 +17,8 @@ from models import (
     get_step_by_id,
     update_test_step,
     delete_test_step,
+    swap_step_numbers,
+    reorder_steps,
     add_screenshot_to_step,
     get_screenshots_by_step,
     delete_screenshot
@@ -35,6 +37,45 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Custom CSS for clean table-style rows
+st.markdown("""
+<style>
+    /* Style row buttons to look like text rows - target buttons in table */
+    div[data-testid="column"] button[kind="secondary"] {
+        background-color: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 6px 8px !important;
+        text-align: left !important;
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 60px !important;
+        color: inherit !important;
+        font-weight: normal !important;
+        transition: background-color 0.2s !important;
+        display: flex !important;
+        align-items: center !important;
+    }
+    
+    div[data-testid="column"] button[kind="secondary"]:hover {
+        background-color: #f5f5f5 !important;
+        border-radius: 4px !important;
+    }
+    
+    /* Make columns fill full height */
+    div[data-testid="column"] {
+        display: flex !important;
+        align-items: stretch !important;
+    }
+    
+    /* Fade date column text */
+    div[data-testid="column"]:nth-child(4) button {
+        color: #999 !important;
+        font-size: 0.9em !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # Initialize database on startup
 @st.cache_resource
@@ -201,37 +242,42 @@ if page == "All Test Cases" or page == "View Test Cases":  # Support both for ba
         3. Start adding steps and documentation
         """)
     else:
-        # Create custom clickable table
-        st.markdown("**Click on any row to view test case details**")
-        st.markdown("---")
-        
         # Initialize selected test cases in session state
         if 'selected_test_cases' not in st.session_state:
             st.session_state['selected_test_cases'] = []
         
+        st.write("")  # Spacing
+        
+        # Clean table-style layout (inspired by modern project management tools)
         # Table header
-        col_header0, col_header1, col_header2, col_header3, col_header4 = st.columns([0.5, 2, 4, 2, 1])
-        with col_header0:
+        col_header_check, col_header_num, col_header_desc, col_header_date, col_header_action = st.columns([0.4, 2.5, 5, 2, 1])
+        with col_header_check:
             st.markdown("**Export**")
-        with col_header1:
+        with col_header_num:
             st.markdown("**Test Number**")
-        with col_header2:
+        with col_header_desc:
             st.markdown("**Description**")
-        with col_header3:
+        with col_header_date:
             st.markdown("**Created**")
-        with col_header4:
+        with col_header_action:
             st.markdown("**Actions**")
         
         st.markdown("---")
+        st.write("")  # Spacing
         
-        # Display each test case as a clickable row
-        for tc in test_cases:
-            col0, col1, col2, col3, col4 = st.columns([0.5, 2, 4, 2, 1])
+        # Display each test case as a clean table row
+        for idx, tc in enumerate(test_cases):
+            col_check, col_num, col_desc, col_date, col_delete = st.columns([0.4, 2.5, 5, 2, 1])
             
-            # Export checkbox
-            with col0:
+            with col_check:
                 checkbox_key = f"export_checkbox_{tc['id']}"
-                is_selected = st.checkbox("", value=(tc['id'] in st.session_state['selected_test_cases']), key=checkbox_key, label_visibility="collapsed")
+                is_selected = st.checkbox(
+                    "", 
+                    value=(tc['id'] in st.session_state['selected_test_cases']), 
+                    key=checkbox_key, 
+                    label_visibility="collapsed",
+                    help="Select for export"
+                )
                 
                 # Update selected test cases based on checkbox state
                 if is_selected and tc['id'] not in st.session_state['selected_test_cases']:
@@ -239,38 +285,45 @@ if page == "All Test Cases" or page == "View Test Cases":  # Support both for ba
                 elif not is_selected and tc['id'] in st.session_state['selected_test_cases']:
                     st.session_state['selected_test_cases'].remove(tc['id'])
             
+            # Create clickable row with formatted content
+            created_date = tc['created_at'][:10] if tc['created_at'] else 'N/A'
+            description = tc['description'][:120] + "..." if len(tc['description']) > 120 else tc['description']
             
-            # Make the row clickable - use button that spans most of the row
-            with col1:
-                if st.button(tc['test_number'], key=f"row_{tc['id']}_1", use_container_width=True):
+            # Format row content: Test Number | Description | Date (faded)
+            row_content = f"{tc['test_number']}  |  {description}  |  <span style='color: #999;'>{created_date}</span>"
+            
+            with col_num:
+                # Display test number as clickable button (styled to look like text)
+                if st.button(tc['test_number'], key=f"row_num_{tc['id']}", use_container_width=True):
                     st.session_state['view_test_case_id'] = tc['id']
                     st.session_state['page'] = "Test Case Details"
                     st.session_state['force_details_page'] = True
                     st.rerun()
             
-            with col2:
-                description = tc['description'][:80] + "..." if len(tc['description']) > 80 else tc['description']
-                if st.button(description, key=f"row_{tc['id']}_2", use_container_width=True):
+            with col_desc:
+                # Display description as clickable button (styled to look like text)
+                if st.button(description, key=f"row_desc_{tc['id']}", use_container_width=True):
                     st.session_state['view_test_case_id'] = tc['id']
                     st.session_state['page'] = "Test Case Details"
                     st.session_state['force_details_page'] = True
                     st.rerun()
             
-            with col3:
-                created_date = tc['created_at'][:10] if tc['created_at'] else "N/A"
-                if st.button(created_date, key=f"row_{tc['id']}_3", use_container_width=True):
+            with col_date:
+                # Display date as clickable button (styled to look like text, faded)
+                if st.button(created_date, key=f"row_date_{tc['id']}", use_container_width=True):
                     st.session_state['view_test_case_id'] = tc['id']
                     st.session_state['page'] = "Test Case Details"
                     st.session_state['force_details_page'] = True
                     st.rerun()
             
-            with col4:
-                # Delete button
-                if st.button("🗑️", key=f"delete_{tc['id']}", help=f"Delete {tc['test_number']}"):
+            with col_delete:
+                if st.button("🗑️", key=f"delete_{tc['id']}", help=f"Delete {tc['test_number']}", use_container_width=True):
                     st.session_state['delete_test_case_id'] = tc['id']
                     st.session_state['delete_test_case_number'] = tc['test_number']
             
-            st.markdown("---")
+            # Clean separator between rows
+            if idx < len(test_cases) - 1:
+                st.markdown("<hr style='margin: 2px 0; border: none; border-top: 1px solid #e8e8e8;'>", unsafe_allow_html=True)
         
         # Handle delete confirmation
         if 'delete_test_case_id' in st.session_state and 'delete_test_case_number' in st.session_state:
@@ -354,14 +407,14 @@ elif page == "Create New Test Case":
         test_number = st.text_input(
             "Test Number *",
             value=suggested_number,
-            placeholder="e.g., TC-001, TC-IMPL-001",
-            help=f"Suggested: {suggested_number} (based on existing test cases)"
+            placeholder=f"e.g., {suggested_number}, TC-IMPL-001, TC-INT-001",
+            help=f"💡 Suggested: {suggested_number} (auto-generated based on existing test cases). Use a unique identifier for this test case."
         )
         
         description = st.text_area(
             "Description *",
-            placeholder="Enter a detailed description of the test case...",
-            help="Describe what this test case validates",
+            placeholder="Example: Test case for order creation, execution, and cost validation workflow in SimCorp Dimension...",
+            help="📝 Provide a clear, detailed description of what this test case validates. Include the workflow, modules involved, and expected outcomes.",
             height=120
         )
         
@@ -475,7 +528,8 @@ elif page == "Test Case Details":
                     "Test Number *",
                     value=test_case['test_number'],
                     key=f"edit_tc_num_{test_case_id}",
-                    help="Enter a unique test case number"
+                    placeholder="e.g., TC-001, TC-IMPL-001",
+                    help="💡 Enter a unique test case identifier. Use a consistent naming convention."
                 )
             with col_info2:
                 created_date = test_case['created_at'][:10] if test_case['created_at'] else 'N/A'
@@ -484,14 +538,15 @@ elif page == "Test Case Details":
                     value=created_date,
                     key=f"edit_tc_created_{test_case_id}",
                     disabled=True,
-                    help="Creation date (cannot be changed)"
+                    help="📅 Test case creation date (read-only)"
                 )
             
             description = st.text_area(
                 "Description *",
                 value=test_case['description'],
                 key=f"edit_tc_desc_{test_case_id}",
-                help="Describe what this test case validates",
+                placeholder="Example: Test case for order creation, execution, and cost validation workflow...",
+                help="📝 Update the description to clearly explain what this test case validates, including workflows and expected outcomes.",
                 height=120
             )
             
@@ -541,11 +596,82 @@ elif page == "Test Case Details":
             if len(steps) == 0:
                 st.info("No steps added yet. Use the form below to add your first step.")
             else:
-                # Display steps with inline editing
-                for idx, step in enumerate(steps, 1):
+                st.markdown("**💡 Use position selector in each step to reorder**")
+                st.write("")  # Spacing
+                
+                # Display each step as an expander (the box itself)
+                for idx, step in enumerate(steps):
                     step_key = f"step_{step['id']}"
                     
-                    with st.expander(f"Step {step['step_number']}", expanded=False):
+                    # Create expander
+                    step_label = f"> Step {step['step_number']}: {step['description'][:50]}..." if len(step['description']) > 50 else f"> Step {step['step_number']}: {step['description']}"
+                    with st.expander(step_label, expanded=False):
+                        # Position selector at the top (OUTSIDE form so it triggers immediately)
+                        positions = list(range(1, len(steps) + 1))
+                        # Use the actual step_number from database, not idx (which is just loop position)
+                        current_pos = step['step_number']
+                        
+                        col_pos_label, col_pos_select = st.columns([2, 3])
+                        with col_pos_label:
+                            st.markdown("**Move to position:**")
+                        with col_pos_select:
+                            # Find current index in positions list (0-based)
+                            current_index = min(current_pos - 1, len(positions) - 1)
+                            new_pos = st.selectbox(
+                                "",
+                                options=positions,
+                                index=current_index,
+                                key=f"pos_{step['id']}",
+                                label_visibility="collapsed",
+                                help=f"Move Step {step['step_number']} to position"
+                            )
+                            
+                            # Track the last processed position for this step
+                            last_pos_key = f"last_pos_{step['id']}"
+                            
+                            # Initialize with current position (only once)
+                            if last_pos_key not in st.session_state:
+                                st.session_state[last_pos_key] = current_pos
+                            
+                            # Only process if the selectbox value changed from what we last processed
+                            # AND it's different from the current position
+                            if new_pos != st.session_state[last_pos_key] and new_pos != current_pos:
+                                # Calculate new order - insert and shift, don't swap
+                                new_order = [s['id'] for s in steps]
+                                moved_step_id = step['id']
+                                
+                                # Find current position index in the ordered list (by step_number, not by loop index)
+                                current_idx = next((i for i, s in enumerate(steps) if s['id'] == moved_step_id), idx)
+                                target_pos = new_pos  # 1-based target position
+                                target_idx = target_pos - 1  # 0-based target index
+                                
+                                # Remove step from current position first
+                                new_order.pop(current_idx)
+                                
+                                # Calculate insert index after removal
+                                # If moving forward (target_idx < current_idx), insert at target_idx
+                                # If moving backward (target_idx >= current_idx), insert at target_idx (indices already shifted)
+                                if target_idx < current_idx:
+                                    # Moving forward: insert at target position
+                                    insert_index = target_idx
+                                else:
+                                    # Moving backward: after removal, target position is still correct
+                                    insert_index = target_idx
+                                
+                                # Insert at calculated position
+                                new_order.insert(insert_index, moved_step_id)
+                                
+                                if reorder_steps(test_case_id, new_order):
+                                    # Update the stored value to match the new position BEFORE rerun
+                                    st.session_state[last_pos_key] = new_pos
+                                    st.cache_data.clear()
+                                    st.rerun()
+                                else:
+                                    st.error("❌ Failed to reorder steps")
+                        
+                        st.markdown("---")
+                        st.write("")  # Spacing
+                        
                         with st.form(f"step_form_{step['id']}", clear_on_submit=False):
                             # New layout: Description (left, single row) | Step Number + Delete (right, small)
                             col_desc, col_num_del = st.columns([4, 1])
@@ -554,7 +680,8 @@ elif page == "Test Case Details":
                                     "Description",
                                     value=step['description'],
                                     key=f"desc_{step['id']}",
-                                    help="Main description of what this step validates"
+                                    placeholder="e.g., Navigate to Order Entry module and create a new order",
+                                    help="📝 Describe the action or validation performed in this step. Be specific about what the user does or what is validated."
                                 )
                             with col_num_del:
                                 col_step, col_del = st.columns([2, 1])
@@ -564,7 +691,7 @@ elif page == "Test Case Details":
                                         min_value=1,
                                         value=step['step_number'],
                                         key=f"step_num_{step['id']}",
-                                        help="Step number"
+                                        help="🔢 Step number in the sequence"
                                     )
                                 with col_del:
                                     st.write("")  # Spacing
@@ -576,8 +703,9 @@ elif page == "Test Case Details":
                                 "Notes",
                                 value=step['modules'] if step['modules'] else "",
                                 key=f"notes_{step['id']}",
+                                placeholder="Example:\n• Modules used: Order Entry, Portfolio Management\n• Calculation: Cost = Quantity × Price\n• Configuration: Enable auto-execution in settings",
                                 height=150,
-                                help="Add notes, modules, calculation logic, configuration"
+                                help="📋 Add detailed notes including: modules used, calculation logic, configuration requirements, or any other relevant information."
                             )
                             
                             # Display screenshots
@@ -602,10 +730,10 @@ elif page == "Test Case Details":
                             
                             # Upload new screenshot
                             uploaded_screenshot = st.file_uploader(
-                                "Add files",
+                                "Add Screenshots (Optional)",
                                 type=['png', 'jpg', 'jpeg', 'gif', 'bmp'],
                                 key=f"upload_{step['id']}",
-                                help="PNG, JPG, JPEG, GIF, BMP • Limit 200MB per file"
+                                help="📸 Upload screenshots to document this step. Supported formats: PNG, JPG, JPEG, GIF, BMP. Maximum file size: 200MB per file."
                             )
                             
                             # Save changes button
@@ -685,32 +813,32 @@ elif page == "Test Case Details":
                 with col_desc:
                     step_description = st.text_input(
                         "Step Description *",
-                        placeholder="Describe what this step validates...",
-                        help="Detailed description of the step"
+                        placeholder="e.g., Navigate to Order Entry module and create a new order",
+                        help="📝 Describe the action or validation performed in this step. Be specific about what the user does or what is validated."
                     )
                 with col_num:
                     step_number = st.number_input(
                         "Step #",
                         min_value=1,
                         value=len(steps) + 1 if steps else 1,
-                        help="Step number in sequence"
+                        help="🔢 Step number in the sequence. Automatically set to the next number, but you can change it."
                     )
                 
                 # Notes field (full-width, below Description and Step Number)
                 st.markdown("**Additional Information (Optional):**")
                 step_notes = st.text_area(
                     "Notes",
-                    placeholder="Add any notes, modules used, calculation logic, configuration details, etc.",
-                    help="Add any additional details about this step",
+                    placeholder="Example:\n• Modules used: Order Entry, Portfolio Management\n• Calculation: Cost = Quantity × Price\n• Configuration: Enable auto-execution in settings",
+                    help="📋 Add detailed notes including: modules used, calculation logic, configuration requirements, or any other relevant information.",
                     height=150
                 )
                 
                 # Screenshot upload
                 uploaded_screenshot = st.file_uploader(
-                    "Add files",
+                    "Add Screenshots (Optional)",
                     type=['png', 'jpg', 'jpeg', 'gif', 'bmp'],
                     key=f"add_screenshot_{test_case_id}",
-                    help="PNG, JPG, JPEG, GIF, BMP • Limit 200MB per file"
+                    help="📸 Upload screenshots to document this step. Supported formats: PNG, JPG, JPEG, GIF, BMP. Maximum file size: 200MB per file."
                 )
                 
                 submitted = st.form_submit_button("Add Step", type="primary", use_container_width=True)

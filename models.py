@@ -219,6 +219,104 @@ def delete_test_step(step_id: int) -> bool:
     return success
 
 
+def swap_step_numbers(test_case_id: int, step_id_1: int, step_id_2: int) -> bool:
+    """Swap the step numbers of two steps within the same test case."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Get current step numbers
+    cursor.execute("SELECT step_number FROM test_steps WHERE id = ?", (step_id_1,))
+    step_1 = cursor.fetchone()
+    cursor.execute("SELECT step_number FROM test_steps WHERE id = ?", (step_id_2,))
+    step_2 = cursor.fetchone()
+    
+    if not step_1 or not step_2:
+        conn.close()
+        return False
+    
+    step_num_1 = step_1[0]
+    step_num_2 = step_2[0]
+    
+    # Use a temporary value to avoid unique constraint violation
+    temp_step_num = 99999
+    
+    try:
+        # Set first step to temporary number
+        cursor.execute("""
+            UPDATE test_steps
+            SET step_number = ?
+            WHERE id = ?
+        """, (temp_step_num, step_id_1))
+        
+        # Set second step to first step's number
+        cursor.execute("""
+            UPDATE test_steps
+            SET step_number = ?
+            WHERE id = ?
+        """, (step_num_1, step_id_2))
+        
+        # Set first step to second step's number
+        cursor.execute("""
+            UPDATE test_steps
+            SET step_number = ?
+            WHERE id = ?
+        """, (step_num_2, step_id_1))
+        
+        conn.commit()
+        success = True
+    except Exception as e:
+        conn.rollback()
+        success = False
+    finally:
+        conn.close()
+    
+    return success
+
+
+def reorder_steps(test_case_id: int, step_order: List[int]) -> bool:
+    """
+    Reorder steps by providing a list of step IDs in the desired order.
+    Step numbers will be reassigned sequentially starting from 1.
+    
+    Args:
+        test_case_id: The test case ID
+        step_order: List of step IDs in the desired order
+    
+    Returns:
+        True if successful, False otherwise
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # First, set all step numbers to temporary values to avoid unique constraint
+        temp_start = 10000
+        for idx, step_id in enumerate(step_order):
+            cursor.execute("""
+                UPDATE test_steps
+                SET step_number = ?
+                WHERE id = ? AND test_case_id = ?
+            """, (temp_start + idx, step_id, test_case_id))
+        
+        # Now assign the correct sequential numbers
+        for idx, step_id in enumerate(step_order, start=1):
+            cursor.execute("""
+                UPDATE test_steps
+                SET step_number = ?
+                WHERE id = ? AND test_case_id = ?
+            """, (idx, step_id, test_case_id))
+        
+        conn.commit()
+        success = True
+    except Exception as e:
+        conn.rollback()
+        success = False
+    finally:
+        conn.close()
+    
+    return success
+
+
 # Screenshot Functions
 def add_screenshot_to_step(step_id: int, file_path: str, screenshot_name: Optional[str] = None) -> int:
     """Add a screenshot to a step and return the screenshot ID."""
