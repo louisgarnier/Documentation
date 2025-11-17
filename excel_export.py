@@ -75,44 +75,71 @@ def create_summary_sheet(sheet, test_cases=None):
     if test_cases is None:
         test_cases = get_all_test_cases()
     
-    # Row 2: Title (centered in column B)
-    title_cell = sheet.cell(row=2, column=2)
+    # White fill for all cells
+    white_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+    
+    # Apply white fill to entire sheet (first 100 rows, first 20 columns)
+    for row in range(1, 101):
+        for col in range(1, 21):
+            cell = sheet.cell(row=row, column=col)
+            cell.fill = white_fill
+    
+    # Define borders
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    # Thick black border for the outer box
+    thick_border = Border(
+        left=Side(style='thick', color='000000'),
+        right=Side(style='thick', color='000000'),
+        top=Side(style='thick', color='000000'),
+        bottom=Side(style='thick', color='000000')
+    )
+    
+    # Add padding: 
+    # - Row 2: padding top (bordure supérieure)
+    # - Row 3: Title
+    # - Row 4: spacing
+    # - Row 5: Headers
+    # - Row 6+: Data
+    # - Last row + 1: padding bottom (bordure inférieure)
+    # Columns: A = padding left, B-E = content, F+ = padding right
+    
+    # Row 3: Title (centered in column C, with padding left from column A)
+    title_cell = sheet.cell(row=3, column=3)  # Column C instead of B for left padding
     title_cell.value = "Test Case Documentation"
     title_cell.font = Font(bold=True, size=14)
+    title_cell.fill = white_fill
+    # No border on title cell itself
     
-    # Row 4: Headers (starting in column B to match reference format)
+    # Row 5: Headers (starting in column C, with padding left)
     headers = ["Test Case ID", "Test Case Name", "Execution Status", "Outcome"]
-    header_font = Font(bold=True, size=11, color="FFFFFF")  # White text
-    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")  # Blue background
+    header_font = Font(bold=True, size=11, color="FFFFFF")  # White text, bold
+    header_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")  # Dark blue background
     header_alignment = Alignment(horizontal="center", vertical="center")
-    thin_border = Border(
-        left=Side(style='thin'),
-        right=Side(style='thin'),
-        top=Side(style='thin'),
-        bottom=Side(style='thin')
-    )
     
-    for col_num, header in enumerate(headers, 2):  # Start from column B (2)
-        cell = sheet.cell(row=4, column=col_num)
+    for col_num, header in enumerate(headers, 3):  # Start from column C (3) instead of B
+        cell = sheet.cell(row=5, column=col_num)
         cell.value = header
         cell.font = header_font
-        cell.fill = header_fill
         cell.alignment = header_alignment
         cell.border = thin_border
+        cell.fill = header_fill  # Dark blue background instead of white
     
-    # Row 5 onwards: Test case data
-    thin_border = Border(
-        left=Side(style='thin'),
-        right=Side(style='thin'),
-        top=Side(style='thin'),
-        bottom=Side(style='thin')
-    )
+    # Row 6 onwards: Test case data (with padding from headers)
+    last_data_row = 5  # Will be updated as we add rows
     
-    for row_num, test_case in enumerate(test_cases, 5):
-        # Column B: Test Case ID (with hyperlink to test case sheet)
-        test_case_id_cell = sheet.cell(row=row_num, column=2)
+    for row_num, test_case in enumerate(test_cases, 6):
+        # Ensure all cells in this row have borders (table structure)
+        # Column C: Test Case ID (with hyperlink to test case sheet) - shifted to column C
+        test_case_id_cell = sheet.cell(row=row_num, column=3)  # Column C instead of B
         test_case_id_cell.value = test_case['test_number']
         test_case_id_cell.border = thin_border
+        test_case_id_cell.fill = white_fill
         
         # Create hyperlink to test case sheet
         sheet_name = f"{test_case['test_number']}"
@@ -129,29 +156,134 @@ def create_summary_sheet(sheet, test_cases=None):
         test_case_id_cell.hyperlink = f"#{sheet_name}!A1"
         test_case_id_cell.font = Font(color="0563C1", underline="single")  # Blue, underlined
         
-        # Column C: Test Case Name (Description)
-        desc_cell = sheet.cell(row=row_num, column=3)
+        # Column D: Test Case Name (Description) - shifted
+        desc_cell = sheet.cell(row=row_num, column=4)  # Column D instead of C
         desc_cell.value = test_case['description']
         desc_cell.border = thin_border
         desc_cell.alignment = Alignment(wrap_text=True, vertical="top")
+        desc_cell.fill = white_fill
         
-        # Column D: Execution Status (default to "Completed" or leave empty)
-        status_cell = sheet.cell(row=row_num, column=4)
+        # Column E: Execution Status (default to "Completed" or leave empty) - shifted
+        status_cell = sheet.cell(row=row_num, column=5)  # Column E instead of D
         status_cell.value = "Completed"
         status_cell.border = thin_border
         status_cell.alignment = Alignment(horizontal="center")
+        status_cell.fill = white_fill
         
-        # Column E: Outcome (default to "Pass" or leave empty)
-        outcome_cell = sheet.cell(row=row_num, column=5)
+        # Column F: Outcome (default to "Pass" or leave empty) - shifted
+        outcome_cell = sheet.cell(row=row_num, column=6)  # Column F instead of E
         outcome_cell.value = "Pass"
         outcome_cell.border = thin_border
         outcome_cell.alignment = Alignment(horizontal="center")
+        outcome_cell.fill = white_fill
+        
+        last_data_row = row_num
+    
+    # Apply thick black border around the entire box
+    # Box spans from row 2 (padding top) to last_data_row + 1 (padding bottom), columns B to G
+    # Add padding: row 2 is top padding, row 3 is title, row 4 is spacing, row 5 is headers, row 6+ is data, last+1 is bottom padding
+    # Column B = padding left, Columns C-F = content, Column G = padding right
+    start_row = 2  # Top padding row (will have top border)
+    end_row = last_data_row + 1  # Bottom padding row (will have bottom border)
+    start_col = 2  # Column B (padding left)
+    content_end_col = 6    # Column F (last content column - Outcome)
+    end_col = 7    # Column G (padding right - where the thick right border goes)
+    
+    # Top border (row 2 - padding row)
+    # Only top and side borders, no internal borders
+    # Explicitly set borders for each cell to avoid any unwanted borders
+    for col in range(start_col, end_col + 1):
+        cell = sheet.cell(row=start_row, column=col)
+        cell.fill = white_fill
+        # Explicitly set borders: only top and side borders
+        if col == start_col:
+            # Column B: left and top border
+            cell.border = Border(left=thick_border.left, top=thick_border.top)
+        elif col == end_col:
+            # Column G: right and top border (padding right)
+            cell.border = Border(right=thick_border.right, top=thick_border.top)
+        else:
+            # Middle cells (C, D, E, F): ONLY top border, explicitly no other borders
+            cell.border = Border(top=thick_border.top, left=None, right=None, bottom=None)
+    
+    # Bottom border is handled separately for the padding row below
+    # All data rows should have thin borders on all sides
+    
+    # Left border (column B - padding left) - apply to all rows in the box
+    for row in range(start_row, end_row + 1):
+        cell = sheet.cell(row=row, column=start_col)
+        cell.fill = white_fill
+        if row == start_row:
+            cell.border = Border(left=thick_border.left, top=thick_border.top)
+        elif row == end_row:
+            cell.border = Border(left=thick_border.left, bottom=thick_border.bottom)
+        else:
+            cell.border = Border(left=thick_border.left)
+    
+    # Right border (column G - padding right) - apply to all rows in the box
+    # This is where the thick right border goes, not on column F
+    for row in range(start_row, end_row + 1):
+        cell = sheet.cell(row=row, column=end_col)
+        cell.fill = white_fill
+        
+        # Special handling for row 2 (padding row) - already set above
+        if row == start_row:
+            # Already handled in the top border section above - skip to avoid overwriting
+            continue
+            
+        # For all other rows, apply right border to column G (padding right)
+        if row == end_row:
+            cell.border = Border(right=thick_border.right, bottom=thick_border.bottom)
+        else:
+            cell.border = Border(right=thick_border.right)
+    
+    # Padding right column (column G) - same logic as column B (left padding)
+    # White background, no borders, no content - just padding space
+    # Column G IS the padding right (end_col = 7), already has borders set above
+    # Just ensure it has white fill and no content for all rows
+    for row in range(start_row, end_row + 1):
+        cell = sheet.cell(row=row, column=end_col)  # Column G
+        if cell.value is None:  # Don't overwrite if already set
+            cell.value = None  # No content
+        # Border and fill already set in the right border section above
+    
+    # Ensure title row (row 3) and spacing row (row 4) have no internal borders, only side borders
+    for row in [3, 4]:
+        for col in range(start_col, end_col + 1):
+            cell = sheet.cell(row=row, column=col)
+            cell.fill = white_fill
+            if col == start_col:
+                # Left border only (column B)
+                cell.border = Border(left=thick_border.left)
+            elif col == end_col:
+                # Right border only (column G - padding right)
+                cell.border = Border(right=thick_border.right)
+            else:
+                # No border for middle cells (C, D, E, F) in title/spacing rows
+                cell.border = None
+    
+    # Ensure bottom padding row (last_data_row + 1) has only bottom and side borders
+    bottom_padding_row = last_data_row + 1
+    for col in range(start_col, end_col + 1):
+        cell = sheet.cell(row=bottom_padding_row, column=col)
+        cell.fill = white_fill
+        if col == start_col:
+            # Column B: left and bottom border
+            cell.border = Border(left=thick_border.left, bottom=thick_border.bottom)
+        elif col == end_col:
+            # Column G: right and bottom border (padding right)
+            cell.border = Border(right=thick_border.right, bottom=thick_border.bottom)
+        else:
+            # Middle cells (C, D, E, F): only bottom border
+            cell.border = Border(bottom=thick_border.bottom)
     
     # Auto-adjust column widths
-    sheet.column_dimensions['B'].width = 20
-    sheet.column_dimensions['C'].width = 60
-    sheet.column_dimensions['D'].width = 18
-    sheet.column_dimensions['E'].width = 15
+    sheet.column_dimensions['B'].width = 5  # Padding left
+    sheet.column_dimensions['C'].width = 20  # Test Case ID
+    sheet.column_dimensions['D'].width = 60  # Test Case Name
+    sheet.column_dimensions['E'].width = 18  # Execution Status
+    sheet.column_dimensions['F'].width = 15  # Outcome
+    sheet.column_dimensions['G'].width = 5  # Padding right (same as left padding)
 
 
 def create_test_case_sheet(sheet, test_case):
