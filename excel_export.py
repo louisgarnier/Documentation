@@ -288,19 +288,38 @@ def create_summary_sheet(sheet, test_cases=None):
 
 def create_test_case_sheet(sheet, test_case):
     """Create a sheet for a specific test case matching the reference format with embedded screenshots."""
-    # Row 2: Title linking to Summary (formula format like reference)
-    # Format: =Summary!B6&" - "&Summary!C6
-    # For now, we'll use a simple title format
+    # Set white background for entire sheet (first 200 rows, 20 columns)
+    white_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+    for row in range(1, 201):
+        for col in range(1, 21):
+            cell = sheet.cell(row=row, column=col)
+            cell.fill = white_fill
+    
+    # Row 2: Title and navigation link on the same row
+    # Title in column B
     title_cell = sheet.cell(row=2, column=2)
     title_cell.value = f"{test_case['test_number']} - {test_case['description']}"
     title_cell.font = Font(bold=True, size=12)
+    title_cell.fill = white_fill
     
-    # Row 10: Navigation links (matching reference format)
-    sheet.cell(row=10, column=10).value = "Go to"
-    summary_link_cell = sheet.cell(row=10, column=11)
+    # Navigation link to the right of title (2-3 columns to the right)
+    # "Go to" text - aligned to the right of the cell
+    go_to_cell = sheet.cell(row=2, column=5)  # Column E (2 columns to the right of title)
+    go_to_cell.value = "Go to"
+    go_to_cell.font = Font(size=10)
+    go_to_cell.fill = white_fill
+    go_to_cell.alignment = Alignment(horizontal="right", vertical="center")
+    
+    # "[Summary]" link
+    summary_link_cell = sheet.cell(row=2, column=6)  # Column F (next to "Go to")
     summary_link_cell.value = "[Summary]"
     summary_link_cell.hyperlink = "#Summary!A1"
     summary_link_cell.font = Font(color="0563C1", underline="single")  # Blue, underlined
+    summary_link_cell.fill = white_fill
+    
+    # Freeze panes: freeze at row 3 (just below "Go to [Summary]" row)
+    # This will keep the header row (row 2) visible when scrolling
+    sheet.freeze_panes = "A3"
     
     # Get steps
     steps = get_steps_by_test_case(test_case['id'])
@@ -316,46 +335,79 @@ def create_test_case_sheet(sheet, test_case):
             top=Side(style='thin'),
             bottom=Side(style='thin')
         )
+        # Border for step header row: only top and bottom (thick)
+        step_header_border = Border(
+            left=None,
+            right=None,
+            top=Side(style='medium'),
+            bottom=Side(style='medium')
+        )
         header_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")  # Light blue
         
         for step in steps:
-            # Step description in column B (format: "1  Description")
+            # Step description row: entire row (columns B to E or more) with same color and top/bottom borders
+            # Format: "1  Description"
             step_cell = sheet.cell(row=current_row, column=2)
             step_cell.value = f"{step['step_number']}  {step['description']}"
             step_cell.font = Font(bold=True, size=11)
             step_cell.fill = header_fill
-            step_cell.border = thin_border
+            step_cell.border = step_header_border
             step_cell.alignment = Alignment(wrap_text=True, vertical="top")
             
-            # Add metadata in adjacent columns if available
+            # Apply same fill and border to entire row (columns B through E or more)
+            for col in range(2, 10):  # Columns B to I
+                cell = sheet.cell(row=current_row, column=col)
+                cell.fill = header_fill
+                cell.border = step_header_border
+            
+            # Notes row: skip one line, then add notes
+            notes_row = current_row + 1
+            # Empty row for spacing
+            for col in range(2, 10):
+                cell = sheet.cell(row=notes_row, column=col)
+                cell.fill = white_fill
+                cell.value = None
+            
+            # Notes content on next row
+            notes_content_row = notes_row + 1
+            # Combine all metadata fields into notes
+            notes_parts = []
             if step.get('modules'):
-                modules_cell = sheet.cell(row=current_row, column=3)
-                modules_cell.value = f"Modules: {step['modules']}"
-                modules_cell.border = thin_border
-                modules_cell.alignment = Alignment(wrap_text=True, vertical="top")
+                notes_parts.append(f"Modules: {step['modules']}")
             if step.get('calculation_logic'):
-                calc_cell = sheet.cell(row=current_row, column=4)
-                calc_cell.value = f"Calculation: {step['calculation_logic']}"
-                calc_cell.border = thin_border
-                calc_cell.alignment = Alignment(wrap_text=True, vertical="top")
+                notes_parts.append(f"Calculation: {step['calculation_logic']}")
             if step.get('configuration'):
-                config_cell = sheet.cell(row=current_row, column=5)
-                config_cell.value = f"Config: {step['configuration']}"
-                config_cell.border = thin_border
-                config_cell.alignment = Alignment(wrap_text=True, vertical="top")
+                notes_parts.append(f"Configuration: {step['configuration']}")
+            notes_text = "\n".join(notes_parts)
+            
+            if notes_text:
+                notes_cell = sheet.cell(row=notes_content_row, column=2)
+                notes_cell.value = notes_text
+                notes_cell.font = Font(size=10)
+                notes_cell.fill = white_fill
+                notes_cell.alignment = Alignment(wrap_text=True, vertical="top")
+                # Merge cells for notes (columns B to E)
+                sheet.merge_cells(f'B{notes_content_row}:E{notes_content_row}')
             
             # Get screenshots for this step
             screenshots = get_screenshots_by_step(step['id'])
             
-            # Add screenshots below the step description
+            # Screenshots row: skip one line after notes, then add screenshots
+            if notes_text:
+                image_start_row = notes_content_row + 2  # Skip one line after notes
+            else:
+                image_start_row = notes_row + 1  # If no notes, start after spacing row
+            
+            # Empty row for spacing before screenshots
+            for col in range(2, 10):
+                cell = sheet.cell(row=image_start_row, column=col)
+                cell.fill = white_fill
+                cell.value = None
+            
+            image_row = image_start_row + 1
+            image_col = 2  # Start in column B
+            
             if screenshots:
-                image_row = current_row + 1
-                image_col = 2  # Start in column B
-                
-                # Add spacing row before screenshots
-                sheet.row_dimensions[image_row].height = 10
-                image_row += 1
-                
                 for idx, screenshot in enumerate(screenshots):
                     screenshot_path = screenshot['file_path']
                     
@@ -395,6 +447,9 @@ def create_test_case_sheet(sheet, test_case):
                             if idx < len(screenshots) - 1:
                                 image_row += 1
                                 sheet.row_dimensions[image_row].height = 10
+                                for col in range(2, 10):
+                                    cell = sheet.cell(row=image_row, column=col)
+                                    cell.fill = white_fill
                             
                             # Move to next row for next image (stack vertically)
                             image_row += 1
@@ -404,21 +459,25 @@ def create_test_case_sheet(sheet, test_case):
                             error_cell = sheet.cell(row=image_row, column=image_col)
                             error_cell.value = f"[Image: {os.path.basename(screenshot_path)}]"
                             error_cell.font = Font(italic=True, color="808080")
-                            error_cell.border = thin_border
+                            error_cell.fill = white_fill
                             image_row += 1
                     else:
                         # File doesn't exist, add text reference
                         missing_cell = sheet.cell(row=image_row, column=image_col)
                         missing_cell.value = f"[Image not found: {os.path.basename(screenshot_path)}]"
                         missing_cell.font = Font(italic=True, color="FF0000")
-                        missing_cell.border = thin_border
+                        missing_cell.fill = white_fill
                         image_row += 1
                 
                 # Move to next step (leave space after images)
                 current_row = image_row + 2
             else:
-                # No screenshots, just move to next step
-                current_row += 2
+                # No screenshots, move to next step after notes
+                if notes_text:
+                    current_row = notes_content_row + 2
+                else:
+                    current_row = notes_row + 1
+                current_row += 1  # Add one more line spacing before next step
         
         # Auto-adjust column widths
         sheet.column_dimensions['B'].width = 50
@@ -427,8 +486,10 @@ def create_test_case_sheet(sheet, test_case):
         sheet.column_dimensions['E'].width = 30
     else:
         # No steps
-        sheet.cell(row=6, column=2).value = "No steps defined for this test case."
-        sheet.cell(row=6, column=2).font = Font(italic=True)
+        no_steps_cell = sheet.cell(row=6, column=2)
+        no_steps_cell.value = "No steps defined for this test case."
+        no_steps_cell.font = Font(italic=True)
+        no_steps_cell.fill = white_fill
 
 
 if __name__ == "__main__":
