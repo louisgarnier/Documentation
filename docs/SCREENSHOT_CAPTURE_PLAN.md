@@ -95,7 +95,7 @@ screenshot-capture-service/
 - [x] Créer `config.py` pour configuration
 - [x] **Validation** : Structure créée, prête pour développement
 
-### Phase 2 : Service API Flask ✅
+### Phase 2 : Service API Flask
 - [x] Créer `screenshot-service.py` avec API Flask
 - [x] Implémenter endpoint `/start` (démarre watcher)
 - [x] Implémenter endpoint `/stop` (arrête watcher)
@@ -107,7 +107,7 @@ screenshot-capture-service/
 - [ ] **Tests** : Tester API avec curl/Postman
 - [ ] **Validation** : API fonctionne, peut démarrer/arrêter le watcher
 
-### Phase 3 : Système de Logging ✅
+### Phase 3 : Système de Logging
 - [x] Créer `logger.py` avec configuration logging
 - [x] Définir format de log (timestamp, niveau, message, données)
 - [x] Configurer rotation automatique des logs
@@ -117,7 +117,7 @@ screenshot-capture-service/
 - [ ] **Tests** : Vérifier écriture logs, rotation
 - [ ] **Validation** : Logs créés correctement, format cohérent
 
-### Phase 4 : Script de Surveillance ✅
+### Phase 4 : Script de Surveillance
 - [x] Créer `screenshot-watcher.py`
 - [x] Surveiller dossier Desktop pour nouveaux fichiers `.png`
 - [x] Détecter captures d'écran (pattern de nom macOS)
