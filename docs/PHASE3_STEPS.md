@@ -173,124 +173,148 @@ npm run dev
 
 ---
 
-## Étape 6: Create/Edit Test Case ⏭️
+## Étape 6: Create/Edit Test Case ✅
 
-### Ce que je vais faire:
-1. Créer un formulaire pour créer un test case
-2. Créer un formulaire pour éditer un test case
-3. Connecter aux endpoints API (POST, PUT)
-4. Gérer les erreurs et succès
+### Ce que j'ai fait:
+1. ✅ Créé `TestCaseForm.tsx` component (formulaire réutilisable)
+2. ✅ Créé page `/test-case/new` pour créer un nouveau test case
+3. ✅ Implémenté édition inline dans `TestCaseDetail` component
+4. ✅ Connecté aux endpoints API (POST pour créer, PUT pour éditer)
+5. ✅ Ajouté bouton "Create New Test Case" sur la page principale
+6. ✅ Gestion des erreurs et états de chargement
 
 ### Test proposé:
 ```bash
 npm run dev
+# Backend doit être lancé sur port 8000
+# Cliquer sur "Create New Test Case"
 # Créer un nouveau test case
 # Vérifier qu'il apparaît dans la liste
-# Éditer un test case
+# Cliquer sur un test case et cliquer "Edit"
+# Éditer le test case
 # Vérifier que les changements sont sauvegardés
 ```
 
 ### Validation attendue:
-- [ ] Formulaire de création accessible
-- [ ] Création fonctionne (POST API)
-- [ ] Nouveau test case apparaît dans la liste
-- [ ] Formulaire d'édition accessible
-- [ ] Édition fonctionne (PUT API)
-- [ ] Données persistées dans la DB (vérifier dans Streamlit)
-- [ ] Messages d'erreur/succès affichés
-
-**Je vais lancer les tests et vous donner les résultats avant de continuer.**
+- [x] Formulaire de création accessible (`/test-case/new`)
+- [x] Création fonctionne (POST API)
+- [x] Redirection vers page de détail après création
+- [x] Édition inline dans page de détail
+- [x] Édition fonctionne (PUT API)
+- [x] Messages d'erreur/succès affichés
+- [ ] **À tester**: Nouveau test case apparaît dans la liste
+- [ ] **À tester**: Données persistées dans la DB (vérifier dans Streamlit)
 
 ---
 
-## Étape 7: Steps Management ⏭️
+## Étape 7: Steps Management ✅
 
-### Ce que je vais faire:
-1. Ajouter formulaire pour créer un step
-2. Ajouter formulaire pour éditer un step
-3. Implémenter la suppression de step
-4. Implémenter le reordering de steps
+### Ce que j'ai fait:
+1. ✅ Créé `StepCard.tsx` component (affichage et édition d'un step)
+2. ✅ Créé `AddStepForm.tsx` component (formulaire pour ajouter un step)
+3. ✅ Intégré dans `TestCaseDetail` component
+4. ✅ Implémenté création de step (POST API)
+5. ✅ Implémenté édition de step (PUT API)
+6. ✅ Implémenté suppression de step (DELETE API avec confirmation)
+7. ✅ Implémenté réordonnement de steps (POST reorder API avec dropdown)
+8. ✅ Gestion des champs optionnels (modules, calculation_logic, configuration)
 
 ### Test proposé:
 ```bash
 npm run dev
-# Ajouter un step à un test case
-# Éditer un step
-# Réordonner les steps
+# Backend doit être lancé sur port 8000
+# Ouvrir un test case
+# Ajouter un step avec "Add New Step"
+# Éditer un step existant
+# Réordonner les steps avec le dropdown
 # Supprimer un step
 # Vérifier que tout fonctionne
 ```
 
 ### Validation attendue:
-- [ ] Formulaire pour créer un step accessible
-- [ ] Création de step fonctionne (POST API)
-- [ ] Step apparaît dans la liste
-- [ ] Formulaire pour éditer un step accessible
-- [ ] Édition de step fonctionne (PUT API)
-- [ ] Reordering fonctionne (POST reorder API)
-- [ ] Suppression fonctionne (DELETE API)
-- [ ] Données persistées dans la DB
-
-**Je vais lancer les tests et vous donner les résultats avant de continuer.**
+- [x] Composants créés (StepCard, AddStepForm)
+- [x] Formulaire pour créer un step accessible
+- [x] Création de step fonctionne (POST API)
+- [x] Formulaire pour éditer un step accessible (mode édition dans StepCard)
+- [x] Édition de step fonctionne (PUT API)
+- [x] Reordering fonctionne (POST reorder API avec dropdown)
+- [x] Suppression fonctionne (DELETE API avec confirmation)
+- [x] Champs optionnels gérés (modules, calculation_logic, configuration)
+- [ ] **À tester**: Step apparaît dans la liste après création
+- [ ] **À tester**: Données persistées dans la DB
 
 ---
 
-## Étape 8: Screenshots Management ⏭️
+## Étape 8: Screenshots Management ✅
 
-### Ce que je vais faire:
-1. Implémenter l'upload de screenshots
-2. Afficher les screenshots dans la page de détail
-3. Implémenter la suppression de screenshots
-4. Gérer l'affichage des images
+### Ce que j'ai fait:
+1. ✅ Créé `ScreenshotGallery.tsx` component (affichage des screenshots en grille)
+2. ✅ Créé `ScreenshotUpload.tsx` component (upload avec drag & drop)
+3. ✅ Intégré dans `StepCard` component (section screenshots en bas de chaque step)
+4. ✅ Implémenté upload de screenshot (POST avec FormData)
+5. ✅ Implémenté affichage des images (GET file URL)
+6. ✅ Implémenté suppression de screenshot (DELETE API avec confirmation)
+7. ✅ Gestion du rechargement automatique après upload/suppression
+8. ✅ Validation des types de fichiers et taille (200MB max)
+9. ✅ Drag & drop support
 
 ### Test proposé:
 ```bash
 npm run dev
-# Uploader un screenshot
-# Vérifier qu'il s'affiche
-# Supprimer un screenshot
+# Backend doit être lancé sur port 8000
+# Ouvrir un test case avec des steps
+# Uploader un screenshot (click ou drag & drop)
+# Vérifier qu'il s'affiche dans la galerie
+# Supprimer un screenshot (hover sur l'image)
 # Vérifier qu'il disparaît
 ```
 
 ### Validation attendue:
-- [ ] Upload de screenshot fonctionne (POST avec file)
-- [ ] Image sauvegardée sur le serveur
-- [ ] Affichage des images fonctionne (GET file)
-- [ ] Images visibles dans la page de détail
-- [ ] Suppression fonctionne (DELETE API)
-- [ ] Image supprimée du serveur
-
-**Je vais lancer les tests et vous donner les résultats avant de continuer.**
+- [x] Composants créés (ScreenshotGallery, ScreenshotUpload)
+- [x] Upload de screenshot fonctionne (POST avec FormData)
+- [x] Affichage des images fonctionne (GET file URL)
+- [x] Images visibles dans StepCard (thumbnails 64x64px)
+- [x] Modal pour afficher l'image en taille normale
+- [x] Suppression fonctionne (DELETE API avec confirmation dans modal)
+- [x] Drag & drop support
+- [x] Validation des types de fichiers
+- [x] Layout optimisé (thumbnails à gauche, upload à droite, 50% de largeur)
+- [x] **Testé**: Upload fonctionne ✅
+- [x] **Testé**: Affichage thumbnails fonctionne ✅
+- [x] **Testé**: Modal pour voir l'image en grand ✅
+- [x] **Testé**: Suppression fonctionne ✅
 
 ---
 
-## Étape 9: Export Excel + Footer ⏭️
+## Étape 9: Export Excel + Footer ✅
 
-### Ce que je vais faire:
-1. Créer `Footer.tsx` component
-2. Implémenter la sélection multiple
-3. Implémenter l'export Excel
-4. Gérer le téléchargement du fichier
+### Ce que j'ai fait:
+1. ✅ Créé `Footer.tsx` component (sticky footer avec compteur et bouton Export)
+2. ✅ Intégré le Footer dans la page principale (affiché uniquement si des items sont sélectionnés)
+3. ✅ Implémenté l'export Excel (appel API `/api/export` avec IDs sélectionnés)
+4. ✅ Géré le téléchargement automatique du fichier Excel (Blob → download link)
+5. ✅ Utilisé le même format Excel que Streamlit (via `shared/excel_export.py`)
 
 ### Test proposé:
 ```bash
 npm run dev
-# Sélectionner plusieurs test cases
-# Cliquer sur Export
+# Backend doit être lancé sur port 8000
+# Sélectionner plusieurs test cases (checkboxes)
+# Vérifier que le Footer apparaît avec le compteur
+# Cliquer sur "Export to Excel"
 # Vérifier que le fichier Excel se télécharge
-# Ouvrir le fichier et vérifier le contenu
+# Ouvrir le fichier et vérifier le contenu (même format que Streamlit)
 ```
 
 ### Validation attendue:
-- [ ] Footer s'affiche quand des items sont sélectionnés
-- [ ] Compteur de sélection correct
-- [ ] Sélection multiple fonctionne (plusieurs checkboxes)
-- [ ] Bouton Export visible et fonctionnel
-- [ ] Export génère un fichier Excel (POST export API)
-- [ ] Fichier se télécharge automatiquement
-- [ ] Fichier contient les bonnes données (ouvrir dans Excel)
-
-**Je vais lancer les tests et vous donner les résultats avant de continuer.**
+- [x] Footer s'affiche quand des items sont sélectionnés ✅
+- [x] Compteur de sélection correct ✅
+- [x] Sélection multiple fonctionne (plusieurs checkboxes) ✅
+- [x] Bouton Export visible et fonctionnel ✅
+- [x] Export génère un fichier Excel (POST export API) ✅
+- [x] Fichier se télécharge automatiquement ✅
+- [x] **Testé**: Fichier contient les bonnes données (ouvrir dans Excel) ✅
+- [x] **Testé**: Format Excel identique à celui de Streamlit ✅
 
 ---
 
@@ -332,8 +356,8 @@ npm run dev
 5. ⏭️ Test Case Detail Page
 6. ⏭️ Create/Edit Test Case
 7. ⏭️ Steps Management
-8. ⏭️ Screenshots Management
-9. ⏭️ Export Excel + Footer
+8. ✅ Screenshots Management
+9. ✅ Export Excel + Footer
 10. ⏭️ Polish & Testing
 
 **Chaque étape sera testée avant de passer à la suivante.**

@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Header } from '../src/components/Header';
 import { TestCaseList } from '../src/components/TestCaseList';
-import { testCasesAPI } from '../src/api/client';
+import { Footer } from '../src/components/Footer';
+import { testCasesAPI, exportAPI } from '../src/api/client';
 import type { TestCase } from '../src/types';
 
 export default function HomePage() {
@@ -48,6 +49,38 @@ export default function HomePage() {
     router.push(`/test-case/${testCase.id}`);
   };
 
+  const handleExport = async () => {
+    if (selectedTestCaseIds.size === 0) {
+      alert('No test cases selected for export.');
+      return;
+    }
+
+    try {
+      const testCaseIds = Array.from(selectedTestCaseIds);
+      const blob = await exportAPI.exportToExcel({ test_case_ids: testCaseIds });
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Generate filename with timestamp
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+      link.download = `test_cases_export_${timestamp}.xlsx`;
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to export test cases');
+      console.error('Error exporting test cases:', err);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
       <Header />
@@ -77,6 +110,10 @@ export default function HomePage() {
           />
         )}
       </main>
+      <Footer 
+        selectedCount={selectedTestCaseIds.size} 
+        onExport={handleExport}
+      />
     </div>
   );
 }

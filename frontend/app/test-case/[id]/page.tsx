@@ -79,11 +79,25 @@ export default function TestCaseDetailPage() {
     );
   }
 
+  const handleUpdate = (updatedTestCase: TestCase) => {
+    setTestCase(updatedTestCase);
+  };
+
+  const handleStepsChange = () => {
+    // Reload steps when they change
+    loadTestCaseData();
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
       <Header />
       <main className="flex-grow max-w-7xl mx-auto w-full">
-        <TestCaseDetail testCase={testCase} steps={steps} />
+        <TestCaseDetail 
+          testCase={testCase} 
+          steps={steps} 
+          onUpdate={handleUpdate}
+          onStepsChange={handleStepsChange}
+        />
       </main>
     </div>
   );
