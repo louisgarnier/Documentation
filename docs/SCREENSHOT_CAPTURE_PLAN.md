@@ -95,12 +95,15 @@ screenshot-capture-service/
 - [x] Créer `config.py` pour configuration
 - [x] **Validation** : Structure créée, prête pour développement
 
-### Phase 2 : Service API Flask
-- [ ] Créer `screenshot-service.py` avec API Flask
-- [ ] Implémenter endpoint `/start` (démarre watcher)
-- [ ] Implémenter endpoint `/stop` (arrête watcher)
-- [ ] Implémenter endpoint `/status` (vérifie état)
-- [ ] Gestion des processus (démarrage/arrêt du watcher)
+### Phase 2 : Service API Flask ✅
+- [x] Créer `screenshot-service.py` avec API Flask
+- [x] Implémenter endpoint `/start` (démarre watcher)
+- [x] Implémenter endpoint `/stop` (arrête watcher)
+- [x] Implémenter endpoint `/status` (vérifie état)
+- [x] Implémenter endpoint `/health` (health check)
+- [x] Gestion des processus (démarrage/arrêt du watcher)
+- [x] Créer `start-service.py` (script de démarrage)
+- [x] Créer `stop-service.py` (script d'arrêt)
 - [ ] **Tests** : Tester API avec curl/Postman
 - [ ] **Validation** : API fonctionne, peut démarrer/arrêter le watcher
 
