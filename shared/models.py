@@ -11,8 +11,8 @@ from datetime import datetime
 from typing import Optional, List, Dict, Tuple
 
 
-# Database file path
-DB_DIR = "database"
+# Database file path - relative to shared directory
+DB_DIR = os.path.join(os.path.dirname(__file__), "database")
 DB_FILE = os.path.join(DB_DIR, "test_cases.db")
 
 

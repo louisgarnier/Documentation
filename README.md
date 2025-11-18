@@ -12,27 +12,44 @@ A Streamlit-based web application for creating and managing SimCorp Dimension te
 
 ## Setup
 
+### Streamlit Version (Current)
+
 1. Install dependencies:
 ```bash
-pip install -r requirements.txt
+pip install -r streamlit/requirements.txt
 ```
 
 2. Run the application:
 ```bash
-streamlit run app.py
+# Option 1: Use the launcher script
+python3 run_streamlit.py
+
+# Option 2: Run directly
+streamlit run streamlit/app.py
 ```
 
 3. Open your browser to `http://localhost:8501`
+
+**Note**: The app has been restructured. The main file is now at `streamlit/app.py`, but you can use the launcher script for convenience.
 
 ## Project Structure
 
 ```
 Documentation/
-├── app.py              # Main Streamlit application
-├── models.py           # Database models and setup
-├── excel_export.py     # Excel generation functions
+├── streamlit/          # Streamlit application (current version)
+│   ├── app.py          # Main Streamlit application
+│   └── requirements.txt
+├── shared/             # Shared components (used by Streamlit and future API)
+│   ├── models.py       # Database models and setup
+│   ├── excel_export.py # Excel generation functions
+│   └── database/       # SQLite database
+├── backend/            # Future API backend (empty for now)
+├── frontend/           # Future React frontend (empty for now)
 ├── uploads/            # Screenshot storage
-└── database/           # SQLite database (auto-created)
+├── backups/            # Database backups
+├── docs/               # Documentation files
+├── run_streamlit.py    # Launcher script for Streamlit app
+└── app.py              # Compatibility placeholder
 ```
 
 ## Usage

@@ -8,7 +8,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.drawing.image import Image as XLImage
-from models import (
+from shared.models import (
     get_all_test_cases,
     get_test_case_by_id,
     get_steps_by_test_case,
@@ -16,6 +16,7 @@ from models import (
 )
 from datetime import datetime
 import os
+from pathlib import Path
 
 
 def create_excel_export(output_path="test_cases_export.xlsx", selected_test_case_ids=None):
