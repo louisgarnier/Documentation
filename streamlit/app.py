@@ -6,10 +6,19 @@ A web application for creating and managing SimCorp Dimension test case document
 
 import streamlit as st
 import sys
+import os
 from pathlib import Path
 
-# Add shared directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Add project root to path for imports
+# Get the absolute path to this file, then go up to project root
+current_file = Path(__file__).resolve()
+project_root = current_file.parent.parent
+sys.path.insert(0, str(project_root))
+
+# Verify shared directory exists
+if not (project_root / 'shared').exists():
+    st.error(f"❌ Error: 'shared' directory not found at {project_root / 'shared'}")
+    st.stop()
 
 from shared.models import (
     init_database, 
