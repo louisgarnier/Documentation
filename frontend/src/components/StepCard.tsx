@@ -27,7 +27,6 @@ export const StepCard: React.FC<StepCardProps> = ({
   const [modules, setModules] = useState(step.modules || '');
   const [calculationLogic, setCalculationLogic] = useState(step.calculation_logic || '');
   const [configuration, setConfiguration] = useState(step.configuration || '');
-  const [newPosition, setNewPosition] = useState(step.step_number);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [screenshotRefreshTrigger, setScreenshotRefreshTrigger] = useState(0);
@@ -78,17 +77,6 @@ export const StepCard: React.FC<StepCardProps> = ({
     }
   };
 
-  const handleReorder = async (position: number) => {
-    if (position === step.step_number) return;
-
-    try {
-      setError(null);
-      await stepsAPI.reorder(step.id, { new_position: position });
-      onReorder(step.id, position);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to reorder step');
-    }
-  };
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 p-4">
@@ -100,28 +88,9 @@ export const StepCard: React.FC<StepCardProps> = ({
 
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center space-x-4 flex-1">
-          <div className="flex items-center space-x-2">
-            <span className="font-bold text-lg text-blue-600 dark:text-blue-400">
-              Step {step.step_number}
-            </span>
-            <select
-              value={newPosition}
-              onChange={async (e) => {
-                const pos = parseInt(e.target.value);
-                setNewPosition(pos);
-                if (pos !== step.step_number) {
-                  await handleReorder(pos);
-                }
-              }}
-              className="ml-4 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-            >
-              {Array.from({ length: totalSteps }, (_, i) => i + 1).map((pos) => (
-                <option key={pos} value={pos}>
-                  Move to position {pos}
-                </option>
-              ))}
-            </select>
-          </div>
+          <span className="font-bold text-lg text-blue-600 dark:text-blue-400">
+            Step {step.step_number}
+          </span>
         </div>
         <div className="flex space-x-2">
           {!isEditing ? (
@@ -205,8 +174,8 @@ export const StepCard: React.FC<StepCardProps> = ({
             <textarea
               value={calculationLogic}
               onChange={(e) => setCalculationLogic(e.target.value)}
-              rows={2}
-              placeholder="e.g., Cost = Quantity × Price"
+              rows={6}
+              placeholder="Enter calculation logic, formulas, or paste screenshots descriptions here..."
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
             />
           </div>
@@ -231,11 +200,14 @@ export const StepCard: React.FC<StepCardProps> = ({
               <span className="font-medium">Modules:</span> {step.modules}
             </div>
           )}
-          {step.calculation_logic && (
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              <span className="font-medium">Calculation:</span> {step.calculation_logic}
-            </div>
-          )}
+                  {step.calculation_logic && (
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mt-4">
+                      <span className="font-medium">Calculation Logic:</span>
+                      <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-900 rounded-md whitespace-pre-wrap">
+                        {step.calculation_logic}
+                      </div>
+                    </div>
+                  )}
           {step.configuration && (
             <div className="text-sm text-gray-600 dark:text-gray-400">
               <span className="font-medium">Configuration:</span> {step.configuration}

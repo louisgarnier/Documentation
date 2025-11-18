@@ -2,10 +2,12 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { TestCase, TestStep } from '@/src/types';
 import { ChevronLeftIcon } from './icons/ChevronLeftIcon';
-import { testCasesAPI } from '@/src/api/client';
-import { StepCard } from './StepCard';
+import { testCasesAPI, stepsAPI } from '@/src/api/client';
+import { SortableStepCard } from './SortableStepCard';
 import { AddStepForm } from './AddStepForm';
 
 interface TestCaseDetailProps {
@@ -29,6 +31,15 @@ export const TestCaseDetail: React.FC<TestCaseDetailProps> = ({
   const [description, setDescription] = useState(testCase.description);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reordering, setReordering] = useState(false);
+
+  // Configure sensors for drag and drop
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const formattedDate = new Date(testCase.created_at).toLocaleString('en-US', {
     year: 'numeric',
@@ -72,6 +83,51 @@ export const TestCaseDetail: React.FC<TestCaseDetailProps> = ({
     setDescription(testCase.description);
     setIsEditing(false);
     setError(null);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    const activeId = active.id as number;
+    const overId = over.id as number;
+
+    // Find the steps
+    const activeStep = steps.find(s => s.id === activeId);
+    const overStep = steps.find(s => s.id === overId);
+
+    if (!activeStep || !overStep) {
+      return;
+    }
+
+    // Calculate new position
+    const sortedSteps = [...steps].sort((a, b) => a.step_number - b.step_number);
+    const activeIndex = sortedSteps.findIndex(s => s.id === activeId);
+    const overIndex = sortedSteps.findIndex(s => s.id === overId);
+
+    // Determine new position (insert at over position)
+    const newPosition = overStep.step_number;
+
+    try {
+      setReordering(true);
+      setError(null);
+      
+      // Call API to reorder
+      await stepsAPI.reorder(activeId, { new_position: newPosition });
+      
+      // Reload steps to get updated step numbers
+      if (onStepsChange) {
+        onStepsChange();
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reorder step');
+      console.error('Error reordering step:', err);
+    } finally {
+      setReordering(false);
+    }
   };
 
   return (
@@ -161,30 +217,41 @@ export const TestCaseDetail: React.FC<TestCaseDetailProps> = ({
             {steps.length === 0 ? (
               <p className="text-gray-500 dark:text-gray-500 mb-4">No steps yet. Add steps to document this test case.</p>
             ) : (
-              <div className="space-y-4 mb-4">
-                {steps
-                  .sort((a, b) => a.step_number - b.step_number)
-                  .map((step) => (
-                    <StepCard
-                      key={step.id}
-                      step={step}
-                      totalSteps={steps.length}
-                      onUpdate={(updatedStep) => {
-                        setSteps(steps.map(s => s.id === updatedStep.id ? updatedStep : s));
-                        if (onStepsChange) onStepsChange();
-                      }}
-                      onDelete={(stepId) => {
-                        setSteps(steps.filter(s => s.id !== stepId));
-                        if (onStepsChange) onStepsChange();
-                      }}
-                      onReorder={async (stepId, newPosition) => {
-                        if (onStepsChange) {
-                          onStepsChange();
-                        }
-                      }}
-                    />
-                  ))}
-              </div>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={steps.map(s => s.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-4 mb-4">
+                    {steps
+                      .sort((a, b) => a.step_number - b.step_number)
+                      .map((step) => (
+                        <SortableStepCard
+                          key={step.id}
+                          step={step}
+                          totalSteps={steps.length}
+                          onUpdate={(updatedStep) => {
+                            setSteps(steps.map(s => s.id === updatedStep.id ? updatedStep : s));
+                            if (onStepsChange) onStepsChange();
+                          }}
+                          onDelete={(stepId) => {
+                            setSteps(steps.filter(s => s.id !== stepId));
+                            if (onStepsChange) onStepsChange();
+                          }}
+                          onReorder={async (stepId, newPosition) => {
+                            if (onStepsChange) {
+                              onStepsChange();
+                            }
+                          }}
+                        />
+                      ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
             )}
 
             <AddStepForm

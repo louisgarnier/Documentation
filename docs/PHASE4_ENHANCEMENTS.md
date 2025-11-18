@@ -1,4 +1,6 @@
-# Phase 4: Enhancements - Drag & Drop Steps + Excel Calculation Editor
+# Phase 4: Enhancements - Drag & Drop Steps + Calculation Logic Field
+
+**Status**: ✅ **COMPLÉTÉ**
 
 ## Status: ⏭️ Planning Phase
 
@@ -6,7 +8,9 @@ Cette phase ajoute deux améliorations majeures à l'interface de gestion des te
 
 ---
 
-## Changement 1: Drag & Drop pour réordonner les Steps
+## Changement 1: Drag & Drop pour réordonner les Steps ✅
+
+**Status**: ✅ **COMPLÉTÉ**
 
 ### Objectif
 Remplacer le dropdown "Move to position" par un système de drag & drop pour réordonner les steps de manière plus intuitive.
@@ -59,32 +63,65 @@ Remplacer le dropdown "Move to position" par un système de drag & drop pour ré
 
 ---
 
-## Changement 2: Excel Calculation Editor pour "Calculation Logic"
+## Changement 2: Calculation Logic Field (Simplifié) ✅
+
+**Status**: ✅ **COMPLÉTÉ**
 
 ### Objectif
-Remplacer le champ texte libre "Calculation Logic" par un tableur Excel intégré permettant de faire des calculs et formules.
+Fournir un champ texte simple pour la logique de calcul, formules ou descriptions. L'éditeur Excel complexe a été remplacé par un simple textarea pour une meilleure simplicité d'utilisation.
 
 ### Comportement attendu
-- Quand on clique sur "Edit" d'un step, le champ "Calculation Logic" affiche un tableur Excel
-- Le tableur permet d'entrer des valeurs, formules Excel (=SUM(), =ABS(), etc.)
-- Les formules sont calculées automatiquement
-- Le contenu du tableur est sauvegardé (probablement en JSON ou format Excel)
-- Affichage du tableur dans le mode lecture (non-éditable)
-
-### Exemple de données
-```
-GrossLeverageFI		#N/A
-MV of all Long positions (excluding derivatives)	152 160 852,39	=J3+J4+J5+J7+J8+J10+J12+J13
-ABS(MV of all Short Positions excluding derivatives)	2 123 775,62	=ABS(J9+J11+J14)
-Notional value of all Derivatives	50 000 000,00	=I2+I6
-NAV	150 037 076,77	=SUM(J2:J14)
-GrossLeverageFI:	1,36	=(B17+B18+B19)/B20
-```
+- Champ texte libre (textarea) pour "Calculation Logic"
+- Les utilisateurs peuvent entrer du texte, des formules, ou coller des descriptions
+- Champ optionnel sur la carte de step
+- Peut inclure des descriptions de screenshots ou références
+- Affichage formaté dans le mode lecture
 
 ### Checklist d'implémentation
 
-#### 2.1 Recherche et sélection de la bibliothèque
-- [ ] Rechercher les bibliothèques React pour tableur Excel (react-spreadsheet, react-data-grid, handsontable, x-spreadsheet)
+#### 2.1 Remplacement par textarea simple
+- [x] Remplacer l'éditeur Excel par un simple textarea
+- [x] Textarea avec 6 lignes
+- [x] Texte placeholder suggérant l'utilisation
+- [x] Interface propre et simple
+
+#### 2.2 Mise à jour du composant StepCard
+- [x] Supprimer la checkbox et le composant Excel editor
+- [x] Utiliser un textarea standard pour calculation logic
+- [x] Mettre à jour l'affichage en mode lecture
+
+**Note** : L'éditeur Excel a été reporté. Voir `NICETOHAVE.md` pour les détails des tentatives d'implémentation.
+
+---
+
+## Résumé de la Phase 4
+
+### ✅ Changement 1: Drag & Drop pour réordonner les Steps
+- **Status**: ✅ **COMPLÉTÉ**
+- **Implémentation**: Utilisation de `@dnd-kit` pour le drag & drop
+- **Fonctionnalités**:
+  - Drag & drop des steps avec handle visuel
+  - Mise à jour automatique des numéros de step
+  - Sauvegarde via API de reordering
+  - Feedback visuel pendant le drag
+
+### ✅ Changement 2: Calculation Logic Field (Simplifié)
+- **Status**: ✅ **COMPLÉTÉ**
+- **Implémentation**: Textarea simple remplaçant l'éditeur Excel complexe
+- **Fonctionnalités**:
+  - Champ texte libre pour calculation logic
+  - Affichage formaté en mode lecture
+  - Support des descriptions et références
+
+### 📝 Notes
+- L'éditeur Excel a été reporté (voir `NICETOHAVE.md`)
+- Le composant `ExcelCalculationEditor.tsx` est conservé mais non utilisé
+
+---
+
+## Sections obsolètes (référence uniquement)
+
+### ~~Anciennes tâches Excel Editor (ABANDONNÉES)~~
 - [ ] Évaluer les options :
   - Support des formules Excel de base (=SUM(), =ABS(), =AVG(), =MAX(), =MIN())
   - Calcul automatique des formules
@@ -169,20 +206,19 @@ GrossLeverageFI:	1,36	=(B17+B18+B19)/B20
 - ✅ **Support mobile/touch** : Non nécessaire - Desktop/ordinateur uniquement (si trop compliqué pour tablette/mobile, on peut s'en passer)
 - [ ] Animation de transition souhaitée ? (oui/non, type d'animation) - À déterminer lors de l'implémentation
 
-### Pour le Changement 2 (Excel Editor)
-- ✅ **Taille du tableur** : 15 lignes × 10 colonnes par défaut
-- ✅ **Format de stockage** : XLSX (format Excel)
-- ✅ **Formules Excel** : Formules de base uniquement (=SUM, =ABS, =AVG, =MAX, =MIN, opérateurs arithmétiques, références de cellules)
-- ✅ **Interface** : Checkbox sur la card du step pour activer/désactiver l'affichage du tableur
-- [ ] Export du tableur en fichier Excel séparé nécessaire ? - À déterminer
-- [ ] Import depuis un fichier Excel nécessaire ? - À déterminer
+### Pour le Changement 2 (Calculation Logic - Simplifié)
+- ✅ **Solution simplifiée** : Textarea simple au lieu d'éditeur Excel complexe
+- ✅ **Format de stockage** : Texte libre dans le champ `calculation_logic`
+- ✅ **Interface** : Textarea standard avec 6 lignes, champ optionnel
+- ✅ **Utilisation** : Les utilisateurs peuvent entrer du texte, formules, ou descriptions de screenshots
+- ✅ **Affichage** : Formaté en mode lecture avec préservation des sauts de ligne
 
 ---
 
 ## Ordre d'implémentation recommandé
 
 1. **Changement 1 (Drag & Drop)** - Plus simple, impact UX immédiat
-2. **Changement 2 (Excel Editor)** - Plus complexe, nécessite plus de recherche
+2. **Changement 2 (Calculation Logic)** - ✅ Simplifié en textarea pour meilleure utilisabilité
 
 ---
 
@@ -209,13 +245,15 @@ GrossLeverageFI:	1,36	=(B17+B18+B19)/B20
 
 ## Prochaines étapes
 
-1. ✅ Création du document Phase 4 (ce document)
-2. ⏭️ Révision du document par l'utilisateur
-3. ⏭️ Clarification des questions ouvertes
-4. ⏭️ Push sur Git
-5. ⏭️ Implémentation du Changement 1
-6. ⏭️ Tests et validation du Changement 1
-7. ⏭️ Implémentation du Changement 2
-8. ⏭️ Tests et validation du Changement 2
-9. ⏭️ Documentation finale
+1. ✅ Création du document Phase 4
+2. ✅ Révision du document par l'utilisateur
+3. ✅ Clarification des questions ouvertes
+4. ✅ Push sur Git
+5. ✅ Implémentation du Changement 1 (Drag & Drop)
+6. ✅ Tests et validation du Changement 1
+7. ✅ Implémentation du Changement 2 (Calculation Logic - Simplifié)
+8. ✅ Tests et validation du Changement 2
+9. ✅ Documentation finale
+10. ⏭️ Tests finaux et validation utilisateur
+11. ⏭️ Déploiement si nécessaire
 
