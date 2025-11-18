@@ -245,12 +245,12 @@ screenshot-capture-service/
 **Note** : Tous les scripts sont configurés avec logging. Un script de test complet a été créé pour valider toutes les phases.
 
 ### Phase 6 : Documentation
-- [ ] Créer `README.md` (vue d'ensemble)
-- [ ] Créer `INSTALL.md` (instructions d'installation)
-- [ ] Créer `USAGE.md` (guide d'utilisation)
-- [ ] Documenter commandes terminal
-- [ ] Documenter dépannage
-- [ ] **Validation** : Documentation complète et claire
+- [x] Créer `README.md` (vue d'ensemble) ✅
+- [x] Créer `INSTALL.md` (instructions d'installation) ✅
+- [x] Créer `USAGE.md` (guide d'utilisation) ✅
+- [x] Documenter commandes terminal ✅
+- [x] Documenter dépannage ✅
+- [ ] **Validation** : Documentation complète et claire ⚠️ **À VALIDER**
 
 ### Phase 7 : Intégration Interface Web
 - [ ] Ajouter bouton "Enable/Disable Capture Mode" dans `TestCaseDetail.tsx`
