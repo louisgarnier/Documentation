@@ -104,8 +104,8 @@ screenshot-capture-service/
 - [x] Gestion des processus (démarrage/arrêt du watcher)
 - [x] Créer `start-service.py` (script de démarrage)
 - [x] Créer `stop-service.py` (script d'arrêt)
-- [ ] **Tests** : Tester API avec curl/Postman
-- [ ] **Validation** : API fonctionne, peut démarrer/arrêter le watcher
+- [x] **Tests** : Tester API avec curl/Postman ✅
+- [x] **Validation** : API fonctionne, peut démarrer/arrêter le watcher ✅
 
 ### Phase 3 : Système de Logging
 - [x] Créer `logger.py` avec configuration logging
@@ -114,13 +114,14 @@ screenshot-capture-service/
 - [x] Implémenter fonctions de logging (info, warning, error, debug)
 - [x] Implémenter StructuredFormatter pour format personnalisé
 - [x] Implémenter ComponentAdapter pour composants (SERVICE, WATCHER, API)
-- [ ] **Tests** : Vérifier écriture logs, rotation
-- [ ] **Validation** : Logs créés correctement, format cohérent
+- [x] **Tests** : Vérifier écriture logs, rotation ✅
+- [x] **Validation** : Logs créés correctement, format cohérent ✅
 
 ### Phase 4 : Script de Surveillance
 - [x] Créer `screenshot-watcher.py`
 - [x] Surveiller dossier Desktop pour nouveaux fichiers `.png`
 - [x] Détecter captures d'écran (pattern de nom macOS)
+- [x] Gérer fichiers temporaires macOS (commencent par `.`)
 - [x] Logger détection de capture
 - [x] Afficher popup natif macOS (tkinter)
 - [x] Logger ouverture popup
@@ -130,8 +131,10 @@ screenshot-capture-service/
 - [x] Déplacer capture + description dans dossier dédié
 - [x] Logger sauvegarde réussie
 - [x] Gérer fichiers dupliqués (suffixe numérique)
-- [ ] **Tests** : Tester détection, popup, sauvegarde
-- [ ] **Validation** : Capture détectée → popup → fichiers sauvegardés → tout loggé
+- [x] **Tests** : Tester détection, popup, sauvegarde ✅
+- [x] **Validation** : Capture détectée → popup → fichiers sauvegardés → tout loggé ✅
+- [x] **Popup multiligne** : Textarea tkinter fonctionnel ✅
+- [x] **Déplacement fichiers** : Images déplacées du Desktop vers `~/Documents/TestCaseScreenshots/` ✅
 
 ### Phase 5 : Scripts de Gestion
 - [ ] Créer `start-service.py` (démarre service API)
@@ -281,7 +284,7 @@ Exemples :
 
 ## Questions à Résoudre
 
-1. **Popup natif** : `tkinter` ou `PyObjC` ? (tkinter plus simple)
+1. **Popup natif** : `tkinter` ou `PyObjC` ? ✅ **Résolu** : Utilisation de `osascript` (AppleScript) car tkinter ne fonctionne pas depuis un processus en arrière-plan sur macOS
 2. **Dossier destination** : Dans le projet ou `~/Documents/` ? (à décider)
 3. **Format description** : Fichier `.txt` séparé ou métadonnées ? (fichier .txt recommandé)
 4. **Démarrage automatique** : Au démarrage du Mac ou manuel ? (manuel pour commencer)
