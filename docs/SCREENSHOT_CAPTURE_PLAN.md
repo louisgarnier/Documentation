@@ -117,18 +117,19 @@ screenshot-capture-service/
 - [ ] **Tests** : Vérifier écriture logs, rotation
 - [ ] **Validation** : Logs créés correctement, format cohérent
 
-### Phase 4 : Script de Surveillance
-- [ ] Créer `screenshot-watcher.py`
-- [ ] Surveiller dossier Desktop pour nouveaux fichiers `.png`
-- [ ] Détecter captures d'écran (pattern de nom macOS)
-- [ ] Logger détection de capture
-- [ ] Afficher popup natif macOS (tkinter ou PyObjC)
-- [ ] Logger ouverture popup
-- [ ] Récupérer nom de fichier et description
-- [ ] Logger nom et description saisis
-- [ ] Créer fichier texte avec description
-- [ ] Déplacer capture + description dans dossier dédié
-- [ ] Logger sauvegarde réussie
+### Phase 4 : Script de Surveillance ✅
+- [x] Créer `screenshot-watcher.py`
+- [x] Surveiller dossier Desktop pour nouveaux fichiers `.png`
+- [x] Détecter captures d'écran (pattern de nom macOS)
+- [x] Logger détection de capture
+- [x] Afficher popup natif macOS (tkinter)
+- [x] Logger ouverture popup
+- [x] Récupérer nom de fichier et description
+- [x] Logger nom et description saisis
+- [x] Créer fichier texte avec description
+- [x] Déplacer capture + description dans dossier dédié
+- [x] Logger sauvegarde réussie
+- [x] Gérer fichiers dupliqués (suffixe numérique)
 - [ ] **Tests** : Tester détection, popup, sauvegarde
 - [ ] **Validation** : Capture détectée → popup → fichiers sauvegardés → tout loggé
 
