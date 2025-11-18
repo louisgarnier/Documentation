@@ -107,11 +107,13 @@ screenshot-capture-service/
 - [ ] **Tests** : Tester API avec curl/Postman
 - [ ] **Validation** : API fonctionne, peut démarrer/arrêter le watcher
 
-### Phase 3 : Système de Logging
-- [ ] Créer `logger.py` avec configuration logging
-- [ ] Définir format de log (timestamp, niveau, message, données)
-- [ ] Configurer rotation automatique des logs
-- [ ] Implémenter fonctions de logging (info, warning, error, debug)
+### Phase 3 : Système de Logging ✅
+- [x] Créer `logger.py` avec configuration logging
+- [x] Définir format de log (timestamp, niveau, message, données)
+- [x] Configurer rotation automatique des logs
+- [x] Implémenter fonctions de logging (info, warning, error, debug)
+- [x] Implémenter StructuredFormatter pour format personnalisé
+- [x] Implémenter ComponentAdapter pour composants (SERVICE, WATCHER, API)
 - [ ] **Tests** : Vérifier écriture logs, rotation
 - [ ] **Validation** : Logs créés correctement, format cohérent
 
