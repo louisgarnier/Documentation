@@ -136,14 +136,113 @@ screenshot-capture-service/
 - [x] **Popup multiligne** : Textarea tkinter fonctionnel ✅
 - [x] **Déplacement fichiers** : Images déplacées du Desktop vers `~/Documents/TestCaseScreenshots/` ✅
 
+### Phase 4.4 : Amélioration UX du Popup (Un seul popup avec tous les champs)
+
+**Objectif** : Remplacer les deux popups (nom + description) par un seul popup unifié avec tous les champs nécessaires.
+
+**Tâches d'implémentation** :
+- [x] Modifier `description_dialog.py` pour inclure tous les champs dans un seul popup ✅
+- [x] Conserver la zone de texte libre pour la screenshot name (une ligne de texte) ✅
+- [x] Ajouter champ "Test Case" (tag/projet) - input texte en haut à droite de screenshot name ✅
+- [x] Ajouter champ "Step #" (numéro d'étape) - input numérique en haut à droite de Test case ✅
+- [x] Conserver la zone de texte libre pour la description (textarea multiligne) en dessous ✅
+- [x] Améliorer le layout (labels clairs, espacement, taille fenêtre 700x500) ✅
+- [x] Modifier `screenshot-watcher.py` pour utiliser le nouveau popup unifié ✅
+- [x] Supprimer le popup de nom séparé (AppleScript `simpledialog.askstring`) ✅
+- [x] Adapter la logique de sauvegarde pour utiliser les nouveaux champs ✅
+  - [x] Générer nom de fichier avec Test Case et Step # en priorité : `TC05_step1.png` ✅
+  - [x] Format: `{test_case}_step{step_number}` ou `{test_case}_step{step_number}_{screenshot_name}` ✅
+  - [x] Sauvegarder Test Case, Step #, et Description dans le fichier .txt ✅
+- [x] Logger les nouvelles données (test_case, step_number, long_description) ✅
+- [x] Gérer cas où Test Case ou Step # sont vides (génération de nom avec fallback) ✅
+- [x] Supprimer champ "Short Description" (garder seulement Description multiligne) ✅
+
+**Tests à effectuer** :
+- [x] **Test 1 - Popup unique** : ✅
+  - [x] Faire une capture d'écran (`Shift+Cmd+4`) ✅
+  - [x] Vérifier qu'un seul popup apparaît (pas deux) ✅
+  - [x] Vérifier que le popup contient : Screenshot Name, Test Case, Step #, Description ✅
+  
+- [x] **Test 2 - Saisie des champs** : ✅
+  - [x] Saisir "TC05" dans Test Case ✅
+  - [x] Saisir "1" dans Step # ✅
+  - [x] Saisir une description multiligne avec bullet points ✅
+  - [x] Cliquer OK ✅
+  - [x] Vérifier que tous les champs sont bien capturés ✅
+  
+- [x] **Test 3 - Sauvegarde des fichiers** : ✅
+  - [x] Vérifier que l'image est sauvegardée avec le bon nom (ex: `TC05_step1.png`) ✅
+  - [x] Vérifier que le fichier .txt contient Test Case, Step #, et description ✅
+  - [x] Vérifier que les fichiers sont dans `~/Documents/TestCaseScreenshots/` ✅
+  
+- [x] **Test 4 - Logs** : ✅
+  - [x] Vérifier les logs contiennent : test_case, step_number, long_description ✅
+  - [x] Vérifier le format des logs est cohérent ✅
+  
+- [x] **Test 5 - Cas limites** : ✅
+  - [x] Tester avec Test Case vide (fallback sur screenshot_name ou nom original) ✅
+  - [x] Tester avec Step # vide (fallback sur test_case seul ou screenshot_name) ✅
+  - [x] Tester avec description vide (accepté, peut être vide) ✅
+  - [x] Tester annulation (Cancel) - ne doit rien sauvegarder ✅
+
+**Validation** : ✅ **COMPLÉTÉE**
+- [x] Un seul popup user-friendly avec tous les champs ✅
+- [x] Workflow simplifié (une seule interaction au lieu de deux) ✅
+- [x] Fichiers sauvegardés avec noms cohérents incluant Test Case + Step # (ex: `TC05_step1.png`) ✅
+- [x] Toutes les informations sont loggées correctement ✅
+- [x] Nom de fichier inclut toujours Test Case et Step # pour référence rapide ✅
+
+### Phase 4.5 : Tests d'Activation/Désactivation du Service
+
+**Objectif** : Vérifier que le service peut être activé/désactivé et que le popup ne s'affiche que quand le service est actif.
+
+**Tests à effectuer** :
+- [x] **Test 1 - Vérifier l'état du service** : ✅
+  - [x] Exécuter `curl http://localhost:5001/status` ✅
+  - [x] Vérifier la réponse JSON avec `watcher_running` et `watcher_pid` ✅
+  - [x] Vérifier que le processus est visible avec `ps aux | grep screenshot-watcher` ✅
+  
+- [x] **Test 2 - Désactiver le service** : ✅
+  - [x] Exécuter `curl -X POST http://localhost:5001/stop` ✅
+  - [x] Vérifier la réponse indique "stopped" ✅
+  - [x] Vérifier que le processus watcher n'existe plus (`ps aux | grep screenshot-watcher`) ✅
+  - [x] Vérifier le status avec `curl http://localhost:5001/status` → `watcher_running: false` ✅
+  
+- [x] **Test 3 - Test capture sans service actif** : ✅
+  - [x] Avec le service désactivé, faire une capture d'écran (`Shift+Cmd+4`) ✅
+  - [x] Vérifier qu'**aucun popup n'apparaît** ✅
+  - [x] Vérifier que la capture reste sur le Desktop (non traitée) ✅
+  - [x] Vérifier les logs ne montrent pas de détection de capture ✅
+  
+- [x] **Test 4 - Réactiver le service** : ✅
+  - [x] Exécuter `curl -X POST http://localhost:5001/start` ✅
+  - [x] Vérifier la réponse indique "started" avec un PID ✅
+  - [x] Vérifier que le processus watcher existe (`ps aux | grep screenshot-watcher`) ✅
+  - [x] Vérifier le status avec `curl http://localhost:5001/status` → `watcher_running: true` ✅
+  
+- [x] **Test 5 - Test capture avec service actif** : ✅
+  - [x] Avec le service activé, faire une capture d'écran (`Shift+Cmd+4`) ✅
+  - [x] Vérifier que le **popup apparaît** avec tous les champs ✅
+  - [x] Remplir les champs et valider ✅
+  - [x] Vérifier que les fichiers sont sauvegardés correctement ✅
+  - [x] Vérifier les logs montrent la détection et le traitement ✅
+
+**Validation** : ✅ **COMPLÉTÉE**
+- [x] Le service peut être activé/désactivé via l'API ✅
+- [x] Le popup ne s'affiche que quand le service est actif ✅
+- [x] Les captures ne sont pas traitées quand le service est désactivé ✅
+- [x] Le workflow complet fonctionne après réactivation ✅
+
 ### Phase 5 : Scripts de Gestion
-- [ ] Créer `start-service.py` (démarre service API)
+- [x] Créer `start-service.py` (démarre service API) ✅
 - [ ] Logger démarrage du service
-- [ ] Créer `stop-service.py` (arrête service API)
+- [x] Créer `stop-service.py` (arrête service API) ✅
 - [ ] Logger arrêt du service
-- [ ] Gestion des processus en arrière-plan
-- [ ] **Tests** : Démarrer/arrêter le service
-- [ ] **Validation** : Scripts fonctionnent correctement, logs créés
+- [x] Gestion des processus en arrière-plan ✅
+- [ ] **Tests** : Démarrer/arrêter le service avec les scripts ⚠️ **NON TESTÉ**
+- [ ] **Validation** : Scripts fonctionnent correctement, logs créés ⚠️ **NON TESTÉ**
+
+**Note** : Les scripts existent mais n'ont pas encore été testés. Les tests seront effectués après la Phase 4.5.
 
 ### Phase 6 : Documentation
 - [ ] Créer `README.md` (vue d'ensemble)

@@ -7,6 +7,7 @@ import re
 import shutil
 import tempfile
 import os
+import json
 from pathlib import Path
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
@@ -112,52 +113,8 @@ class ScreenshotHandler(FileSystemEventHandler):
                     self.show_naming_popup(dest_path)
     
     def show_naming_popup(self, screenshot_path):
-        """Affiche un popup natif macOS pour nommer et décrire la capture"""
-        self.logger.info("Popup opened for screenshot naming")
-        
-        # Popup pour le nom (utilise osascript pour popup natif macOS)
-        applescript_name = f'''
-        tell application "System Events"
-            activate
-            set theAnswer to text returned of (display dialog "Enter a name for this screenshot (without extension):" & return & return & "File: {screenshot_path.name}" default answer "" buttons {{"Cancel", "OK"}} default button "OK" with title "Screenshot Name")
-        end tell
-        '''
-        
-        try:
-            result = subprocess.run(
-                ['osascript', '-e', applescript_name],
-                capture_output=True,
-                text=True,
-                timeout=300  # 5 minutes timeout
-            )
-            
-            if result.returncode != 0:
-                self.logger.info("Popup cancelled by user or error occurred")
-                return
-            
-            filename = result.stdout.strip()
-            
-            if not filename:
-                # Afficher warning et quitter
-                applescript_warning = '''
-                tell application "System Events"
-                    activate
-                    display dialog "Name cannot be empty. Screenshot will not be processed." buttons {{"OK"}} default button "OK" with title "Warning" with icon caution
-                end tell
-                '''
-                subprocess.run(['osascript', '-e', applescript_warning], timeout=10)
-                self.logger.warning("Empty name provided, skipping")
-                return
-            
-        except subprocess.TimeoutExpired:
-            self.logger.warning("Popup timeout - user did not respond")
-            return
-        except Exception as e:
-            self.logger.error(f"Error showing name popup: {str(e)}", exc_info=True)
-            return
-        
-        # Popup pour la description (avec vrai textarea multiligne via tkinter)
-        self.logger.info("Opening description input dialog (multiline textarea)")
+        """Affiche un popup unifié pour saisir toutes les informations de la capture"""
+        self.logger.info("Opening unified screenshot information dialog")
         
         # Utiliser le script Python avec tkinter qui s'exécute dans un processus séparé
         script_dir = Path(__file__).parent.resolve()
@@ -169,50 +126,85 @@ class ScreenshotHandler(FileSystemEventHandler):
         
         try:
             # Exécuter le script Python dans un processus séparé qui peut afficher une fenêtre GUI
-            # Utiliser le chemin absolu pour éviter les problèmes avec les espaces
             result = subprocess.run(
-                ['python3', str(dialog_script.resolve()), filename],
+                ['python3', str(dialog_script.resolve()), screenshot_path.name],
                 capture_output=True,
                 text=True,
                 timeout=600,
-                # Important: ne pas capturer stdin pour permettre l'interaction GUI
                 stdin=subprocess.DEVNULL
             )
             
             if result.returncode != 0:
-                self.logger.info("Description popup cancelled by user")
+                self.logger.info("Screenshot info popup cancelled by user")
                 return
             
-            description = result.stdout.strip()
-            
-            if not description:
-                self.logger.info("Empty description provided")
+            # Parser le JSON retourné
+            try:
+                info = json.loads(result.stdout.strip())
+            except json.JSONDecodeError as e:
+                self.logger.error(f"Failed to parse dialog response: {str(e)}")
                 return
+            
+            screenshot_name = info.get("screenshot_name", "").strip()
+            test_case = info.get("test_case", "").strip()
+            step_number = info.get("step_number", "").strip()
+            long_description = info.get("long_description", "").strip()
+            
+            # Générer le nom de fichier avec Test Case et Step # en priorité
+            # Format: TC05_step1 ou TC05_step1_customname
+            if test_case and step_number:
+                # Base: Test Case + Step #
+                base_name = f"{test_case}_step{step_number}"
+                # Ajouter screenshot_name si fourni (pour personnalisation)
+                if screenshot_name:
+                    filename = f"{base_name}_{screenshot_name}"
+                else:
+                    filename = base_name
+            elif test_case:
+                # Si seulement Test Case
+                if screenshot_name:
+                    filename = f"{test_case}_{screenshot_name}"
+                else:
+                    filename = test_case
+            elif screenshot_name:
+                # Si seulement screenshot_name
+                filename = screenshot_name
+            else:
+                # Fallback: utiliser le nom original sans extension
+                filename = screenshot_path.stem
+            
+            # Logger les données saisies
+            self.logger.info("Step 1: User input received - All fields collected")
+            self.logger.info(
+                "User input details",
+                extra={'data': {
+                    'screenshot_name': screenshot_name,
+                    'test_case': test_case,
+                    'step_number': step_number,
+                    'long_description_length': len(long_description),
+                    'generated_filename': filename
+                }}
+            )
+            
+            # Sauvegarder les fichiers
+            self.logger.info(f"Step 2: Starting file save process for '{filename}'")
+            self.save_screenshot(
+                screenshot_path, 
+                filename,
+                test_case,
+                step_number,
+                long_description
+            )
             
         except subprocess.TimeoutExpired:
-            self.logger.warning("Description popup timeout - user did not respond")
+            self.logger.warning("Screenshot info popup timeout - user did not respond")
             return
         except Exception as e:
-            self.logger.error(f"Error showing description popup: {str(e)}", exc_info=True)
+            self.logger.error(f"Error showing screenshot info popup: {str(e)}", exc_info=True)
             return
-        
-        # Logger les données saisies
-        self.logger.info("Step 1: User input received - Name and description collected")
-        self.logger.info(
-            "User input details",
-            extra={'data': {
-                'name': filename,
-                'description_length': len(description) if description else 0,
-                'description_preview': (description[:50] + '...') if description and len(description) > 50 else (description if description else '(empty)')
-            }}
-        )
-        
-        # Sauvegarder les fichiers
-        self.logger.info(f"Step 2: Starting file save process for '{filename}'")
-        self.save_screenshot(screenshot_path, filename.strip(), description.strip() if description else "")
     
-    def save_screenshot(self, screenshot_path, name, description):
-        """Sauvegarde la capture et sa description dans le dossier dédié"""
+    def save_screenshot(self, screenshot_path, name, test_case, step_number, long_description):
+        """Sauvegarde la capture et toutes les informations dans le dossier dédié"""
         try:
             self.logger.info(f"Step 2.1: Preparing to save files - Source: {screenshot_path}")
             
@@ -249,17 +241,23 @@ class ScreenshotHandler(FileSystemEventHandler):
             shutil.move(str(screenshot_path), str(dest_image))
             self.logger.info(f"Step 2.7: Image moved successfully to {dest_image}")
             
-            # Créer le fichier de description
+            # Créer le fichier de description avec toutes les informations
             self.logger.info(f"Step 2.8: Creating description file: {dest_description}")
             with open(dest_description, 'w', encoding='utf-8') as f:
-                f.write(description)
-            self.logger.info(f"Step 2.9: Description file created with {len(description)} characters")
+                f.write(f"Test Case: {test_case}\n")
+                f.write(f"Step #: {step_number}\n")
+                f.write(f"\nDescription:\n{long_description}\n")
+            
+            total_chars = len(test_case) + len(step_number) + len(long_description)
+            self.logger.info(f"Step 2.9: Description file created with {total_chars} characters")
             
             self.logger.info(
                 "Step 3: Files saved successfully - Process complete",
                 extra={'data': {
                     'image': str(dest_image),
                     'description': str(dest_description),
+                    'test_case': test_case,
+                    'step_number': step_number,
                     'image_size_bytes': dest_image.stat().st_size if dest_image.exists() else 0,
                     'description_size_bytes': dest_description.stat().st_size if dest_description.exists() else 0
                 }}
