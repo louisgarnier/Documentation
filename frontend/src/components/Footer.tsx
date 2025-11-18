@@ -13,7 +13,7 @@ export const Footer: React.FC<FooterProps> = ({ selectedCount, onExport }) => {
 
   const handleExport = async () => {
     if (selectedCount === 0) {
-      alert('No test cases selected for export.');
+      setError('Please select at least one test case to export.');
       return;
     }
 
@@ -35,21 +35,23 @@ export const Footer: React.FC<FooterProps> = ({ selectedCount, onExport }) => {
 
   return (
     <footer className="sticky bottom-0 z-10 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+          <div className="flex items-center">
             <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
               {selectedCount} {selectedCount === 1 ? 'test case' : 'test cases'} selected
             </span>
           </div>
-          <div className="flex items-center space-x-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-4 w-full sm:w-auto">
             {error && (
-              <span className="text-sm text-red-600 dark:text-red-400">{error}</span>
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-3 py-2 rounded text-sm">
+                {error}
+              </div>
             )}
             <button
               onClick={handleExport}
               disabled={exporting}
-              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 sm:px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
             >
               {exporting ? 'Exporting...' : 'Export to Excel'}
             </button>

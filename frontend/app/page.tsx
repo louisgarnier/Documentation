@@ -51,7 +51,7 @@ export default function HomePage() {
 
   const handleExport = async () => {
     if (selectedTestCaseIds.size === 0) {
-      alert('No test cases selected for export.');
+      // Error will be handled by Footer component
       return;
     }
 
