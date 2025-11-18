@@ -62,9 +62,11 @@ def setup_logger(name="screenshot-capture", log_file=None, level=None):
     logger = logging.getLogger(name)
     logger.setLevel(level)
     
-    # Avoid duplicate handlers if logger already configured
-    if logger.handlers:
-        return logger
+    # Remove existing handlers to avoid duplicates and ensure fresh handlers
+    # This is important when restarting the service
+    for handler in logger.handlers[:]:
+        handler.close()
+        logger.removeHandler(handler)
     
     # Create rotating file handler
     file_handler = logging.handlers.RotatingFileHandler(
