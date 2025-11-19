@@ -209,3 +209,42 @@ Une fois implémenté, valider :
 8. ✅ La description est correcte
 9. ✅ La liste des steps se rafraîchit automatiquement
 
+## 🎉 Implémentation Complétée
+
+### Fonctionnalités Implémentées
+
+1. **Backend Endpoint** (`POST /api/test-cases/{test_case_id}/steps/load`)
+   - Calcul automatique du prochain step_number
+   - Lecture de la description depuis fichier texte si fourni
+   - Upload et copie des images depuis Capture_TC/ vers uploads/
+   - Association automatique des screenshots au step créé
+   - Validation de sécurité (fichiers doivent être dans Capture_TC/)
+
+2. **Backend Upload Endpoint** (`POST /api/capture-service/upload-file`)
+   - Upload de fichiers depuis l'ordinateur vers Capture_TC/
+   - Génération de noms uniques avec timestamp
+   - Support images (PNG, JPG, JPEG, GIF, BMP) et fichiers texte (TXT)
+
+3. **Frontend Modal** (`LoadStepModal.tsx`)
+   - Affichage des images depuis Capture_TC/ en grille
+   - Sélection multiple d'images avec checkboxes visuelles
+   - Sélection de fichier texte avec chargement automatique du contenu
+   - Option "Or select from computer" pour uploader depuis l'ordinateur
+   - Éditeur de description avec pré-remplissage depuis fichier texte
+   - Validation et gestion d'erreurs
+   - Rafraîchissement automatique après upload
+
+4. **Intégration dans TestCaseDetail**
+   - Bouton "Load Step" (vert) à côté du bouton "Edit"
+   - Callback de rafraîchissement automatique après création
+   - Gestion d'état du modal
+
+### Fichiers Modifiés/Créés
+
+- `backend/api/models.py` - Ajout du modèle `LoadStepRequest`
+- `backend/api/routes/steps.py` - Nouvel endpoint `load_step`
+- `backend/api/routes/capture_service.py` - Nouvel endpoint `upload_file` et support fichiers texte
+- `frontend/src/api/client.ts` - Ajout fonction `stepsAPI.load()`
+- `frontend/src/components/LoadStepModal.tsx` - **NOUVEAU** composant modal complet
+- `frontend/src/components/TestCaseDetail.tsx` - Intégration du bouton et modal
+
