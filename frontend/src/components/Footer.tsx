@@ -5,10 +5,12 @@ import React, { useState } from 'react';
 interface FooterProps {
   selectedCount: number;
   onExport: () => Promise<void>;
+  onDelete: () => Promise<void>;
 }
 
-export const Footer: React.FC<FooterProps> = ({ selectedCount, onExport }) => {
+export const Footer: React.FC<FooterProps> = ({ selectedCount, onExport, onDelete }) => {
   const [exporting, setExporting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleExport = async () => {
@@ -26,6 +28,30 @@ export const Footer: React.FC<FooterProps> = ({ selectedCount, onExport }) => {
       console.error('Error exporting test cases:', err);
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (selectedCount === 0) {
+      setError('Please select at least one test case to delete.');
+      return;
+    }
+
+    // Confirm deletion
+    const confirmMessage = `Are you sure you want to delete ${selectedCount} ${selectedCount === 1 ? 'test case' : 'test cases'}? This action cannot be undone.`;
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      setDeleting(true);
+      setError(null);
+      await onDelete();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete test cases');
+      console.error('Error deleting test cases:', err);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -49,8 +75,15 @@ export const Footer: React.FC<FooterProps> = ({ selectedCount, onExport }) => {
               </div>
             )}
             <button
+              onClick={handleDelete}
+              disabled={deleting || exporting}
+              className="px-4 sm:px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
+            >
+              {deleting ? 'Deleting...' : 'Delete'}
+            </button>
+            <button
               onClick={handleExport}
-              disabled={exporting}
+              disabled={exporting || deleting}
               className="px-4 sm:px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
             >
               {exporting ? 'Exporting...' : 'Export to Excel'}

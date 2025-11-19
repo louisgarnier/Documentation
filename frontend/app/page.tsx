@@ -81,6 +81,29 @@ export default function HomePage() {
     }
   };
 
+  const handleDelete = async () => {
+    if (selectedTestCaseIds.size === 0) {
+      return;
+    }
+
+    try {
+      const testCaseIds = Array.from(selectedTestCaseIds);
+      
+      // Delete all selected test cases
+      await Promise.all(
+        testCaseIds.map(id => testCasesAPI.delete(id))
+      );
+      
+      // Clear selection
+      setSelectedTestCaseIds(new Set());
+      
+      // Reload test cases list
+      await loadTestCases();
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to delete test cases');
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
       <Header />
@@ -113,6 +136,7 @@ export default function HomePage() {
       <Footer 
         selectedCount={selectedTestCaseIds.size} 
         onExport={handleExport}
+        onDelete={handleDelete}
       />
     </div>
   );
