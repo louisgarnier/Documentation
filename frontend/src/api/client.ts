@@ -344,6 +344,42 @@ export const captureServiceAPI = {
   },
 
   /**
+   * Get capture directory path
+   */
+  getCaptureDirectory: async (): Promise<{
+    capture_directory: string;
+    capture_directory_expanded: string;
+  }> => {
+    return fetchAPI<{
+      capture_directory: string;
+      capture_directory_expanded: string;
+    }>('/api/capture-service/capture-directory');
+  },
+
+  /**
+   * List files in capture directory
+   */
+  listCaptureFiles: async (): Promise<{
+    files: Array<{
+      name: string;
+      path: string;
+      size: number;
+      modified: number;
+    }>;
+    directory: string;
+  }> => {
+    return fetchAPI<{
+      files: Array<{
+        name: string;
+        path: string;
+        size: number;
+        modified: number;
+      }>;
+      directory: string;
+    }>('/api/capture-service/capture-files');
+  },
+
+  /**
    * Start/activate the capture mode
    */
   start: async (): Promise<{

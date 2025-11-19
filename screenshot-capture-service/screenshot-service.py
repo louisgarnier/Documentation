@@ -214,7 +214,7 @@ def stop():
     
     if success:
         logger.info("Mode deactivated successfully")
-        return jsonify({"status": "stopped", "message": message}), 400
+        return jsonify({"status": "stopped", "message": message}), 200
     else:
         logger.warning(f"Failed to deactivate mode: {message}")
         return jsonify({"status": "error", "message": message}), 400

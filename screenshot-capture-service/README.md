@@ -41,31 +41,126 @@ Le service est composé de 3 composants principaux :
 
 Voir [INSTALL.md](INSTALL.md) pour les instructions détaillées d'installation.
 
+## ✅ Checklist de Vérification Avant Utilisation
+
+Avant d'utiliser le Screenshot Capture Service, vérifiez que tout est correctement configuré :
+
+### 1. Vérification de l'Environnement
+
+- [ ] **Python 3.8+ installé** : `python3 --version`
+- [ ] **Dépendances installées** : `pip3 list | grep -E "flask|watchdog|psutil"`
+- [ ] **macOS compatible** : macOS 12 ou supérieur
+
+### 2. Vérification des Répertoires
+
+- [ ] **Dossier Desktop accessible** : `ls ~/Desktop` (doit exister)
+- [ ] **Dossier de destination créé** : `ls ~/Documents/TestCaseScreenshots` (sera créé automatiquement si absent)
+- [ ] **Permissions d'écriture** : Vérifier que vous pouvez créer des fichiers dans `~/Documents/`
+
+### 3. Vérification des Services
+
+#### Backend (FastAPI)
+- [ ] **Backend démarré** : `curl http://localhost:8000/health` (doit retourner `{"status":"healthy"}`)
+- [ ] **Backend accessible** : Ouvrir `http://localhost:8000` dans le navigateur
+
+#### Frontend (Next.js)
+- [ ] **Frontend démarré** : `curl http://localhost:3000` (doit retourner du HTML)
+- [ ] **Frontend accessible** : Ouvrir `http://localhost:3000` dans le navigateur
+
+#### Service API (Flask) - Optionnel
+- [ ] **Service API peut démarrer** : `python3 screenshot-capture-service/start-service.py` (test rapide)
+- [ ] **Port 5001 disponible** : `lsof -i :5001` (ne doit pas être utilisé par autre chose)
+
+**Note** : Le Service API se démarre automatiquement depuis l'interface web, pas besoin de le démarrer manuellement.
+
+### 4. Vérification de la Configuration
+
+- [ ] **Fichier config.py existe** : `ls screenshot-capture-service/config.py`
+- [ ] **Port API configuré** : Vérifier `API_PORT = 5001` dans `config.py`
+- [ ] **Dossier Desktop correct** : Vérifier `DESKTOP_DIR` dans `config.py` pointe vers `~/Desktop`
+
+### 5. Vérification de l'Intégration
+
+- [ ] **Interface web accessible** : `http://localhost:3000`
+- [ ] **Page de test case accessible** : Ouvrir un test case dans l'interface
+- [ ] **Bouton "Capture Mode" visible** : Doit apparaître en haut à droite de la page de test case
+
+### 6. Test Rapide
+
+- [ ] **Test de connexion backend** : `curl http://localhost:8000/api/capture-service/status`
+- [ ] **Test de démarrage service** : Cliquer sur "Capture Mode: OFF" dans l'interface
+- [ ] **Voyants s'affichent** : Service API et Capture Mode doivent afficher leur état
+
+### 7. Vérification des Logs
+
+- [ ] **Dossier de logs existe** : `ls ~/Documents/TestCaseScreenshots/screenshot-capture.log` (sera créé au premier démarrage)
+- [ ] **Permissions d'écriture logs** : Vérifier que les logs peuvent être créés
+
+## 🔍 Commandes de Vérification Rapide
+
+```bash
+# Vérifier Python
+python3 --version
+
+# Vérifier dépendances
+pip3 list | grep -E "flask|watchdog|psutil"
+
+# Vérifier répertoires
+ls ~/Desktop && ls ~/Documents/TestCaseScreenshots 2>/dev/null || echo "Dossier sera créé automatiquement"
+
+# Vérifier backend
+curl http://localhost:8000/health
+
+# Vérifier frontend
+curl http://localhost:3000
+
+# Vérifier port 5001 (doit être libre)
+lsof -i :5001 || echo "Port 5001 disponible"
+
+# Vérifier configuration
+cat screenshot-capture-service/config.py | grep -E "API_PORT|DESKTOP_DIR|SCREENSHOTS_DIR"
+```
+
+## ⚠️ Problèmes Courants
+
+Si une vérification échoue :
+
+1. **Backend non accessible** : Démarrer avec `cd backend && uvicorn api.main:app --reload`
+2. **Frontend non accessible** : Démarrer avec `cd frontend && npm run dev`
+3. **Port 5001 occupé** : Arrêter le processus avec `pkill -f screenshot-service`
+4. **Dépendances manquantes** : Installer avec `pip3 install -r screenshot-capture-service/requirements.txt`
+5. **Permissions refusées** : Vérifier les permissions des dossiers Desktop et Documents
+
 ## 📖 Utilisation
 
 Voir [USAGE.md](USAGE.md) pour le guide d'utilisation complet.
 
-### Démarrage rapide
+### Démarrage rapide (Mode Unifié)
 
-```bash
-# Démarrer le service
-python3 screenshot-capture-service/start-service.py
+**Le service se démarre automatiquement depuis l'interface web !**
 
-# Ou en arrière-plan
-python3 screenshot-capture-service/screenshot-service.py &
+1. **Démarrer Backend et Frontend** :
+   ```bash
+   # Terminal 1 - Backend
+   cd backend && uvicorn api.main:app --reload
+   
+   # Terminal 2 - Frontend
+   cd frontend && npm run dev
+   ```
 
-# Activer le mode capture (depuis un autre terminal)
-curl -X POST http://localhost:5001/start
+2. **Ouvrir l'interface** : `http://localhost:3000`
 
-# Prendre une capture (Shift+Cmd+4)
-# Le popup apparaîtra automatiquement
+3. **Activer le mode capture** :
+   - Ouvrir une page de test case
+   - Cliquer sur "Capture Mode: OFF"
+   - Le Service API démarre automatiquement
+   - Les voyants affichent l'état
 
-# Désactiver le mode
-curl -X POST http://localhost:5001/stop
+4. **Prendre des captures** : `Shift+Cmd+4` → Popup apparaît automatiquement
 
-# Arrêter le service
-python3 screenshot-capture-service/stop-service.py
-```
+5. **Désactiver le mode** : Cliquer sur "Capture Mode: ON" → Tout s'arrête automatiquement
+
+**Note** : Plus besoin de démarrer le Service API manuellement, tout est géré depuis l'interface !
 
 ## 📁 Structure du projet
 
@@ -144,18 +239,18 @@ Voir la section [Dépannage](USAGE.md#dépannage) dans USAGE.md.
 
 ## 📈 Statut du projet
 
-✅ **Phase 1-5 complétées** :
+✅ **Phases 1-9 complétées** :
 - ✅ Configuration et structure
 - ✅ Service API Flask
 - ✅ Watcher Desktop
 - ✅ Popup de saisie unifié
 - ✅ Scripts de gestion avec logging
 - ✅ Tests complets
+- ✅ Documentation complète
+- ✅ Intégration Interface Web
+- ✅ Mode Capture Unifié (Service API + Watcher via un seul bouton)
 
-🚧 **En cours** :
-- Phase 6 : Documentation (ce fichier)
-- Phase 7 : Intégration Interface Web
-- Phase 8 : Tests finaux
+**Status** : ✅ **Production Ready**
 
 ## 📄 Licence
 

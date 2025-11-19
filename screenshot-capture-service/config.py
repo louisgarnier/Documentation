@@ -11,8 +11,9 @@ API_HOST = "localhost"
 # Directories
 HOME_DIR = Path.home()
 DESKTOP_DIR = HOME_DIR / "Desktop"
-SCREENSHOTS_DIR = HOME_DIR / "Documents" / "TestCaseScreenshots"
-LOG_FILE = SCREENSHOTS_DIR / "screenshot-capture.log"
+SCREENSHOTS_DIR = HOME_DIR / "Desktop" / "Capture_TC"
+# Keep log file in Documents to avoid cluttering Desktop
+LOG_FILE = (HOME_DIR / "Documents" / "TestCaseScreenshots" / "screenshot-capture.log")
 
 # Logging Configuration
 LOG_MAX_SIZE = 10 * 1024 * 1024  # 10 MB
@@ -28,4 +29,6 @@ DESCRIPTION_FILE_EXTENSION = ".txt"
 
 # Ensure directories exist
 SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
+# Ensure log directory exists
+LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
 

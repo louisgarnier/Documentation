@@ -2,13 +2,14 @@
 Routes for capture service management (start/stop/status).
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Body
 import sys
 import subprocess
 import psutil
 import requests
 from pathlib import Path
 from typing import Dict, Any
+from pydantic import BaseModel
 
 # Add project root to path to import shared modules
 project_root = Path(__file__).parent.parent.parent.parent
@@ -76,6 +77,202 @@ async def get_service_status() -> Dict[str, Any]:
         "watcher_running": watcher_running,
         "status": "on" if service_running else ("starting" if service_process_running else "off")
     }
+
+
+@router.get("/capture-directory")
+async def get_capture_directory() -> Dict[str, Any]:
+    """
+    Get the capture directory path where screenshots are saved.
+    
+    Returns:
+        - capture_directory: str - Path to the capture directory
+    """
+    try:
+        # Import config from screenshot-capture-service
+        config_path = project_root / "screenshot-capture-service" / "config.py"
+        if not config_path.exists():
+            raise HTTPException(
+                status_code=500,
+                detail="Config file not found"
+            )
+        
+        # Read config to get SCREENSHOTS_DIR
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("config", config_path)
+        config = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(config)
+        
+        capture_dir = config.SCREENSHOTS_DIR.expanduser()
+        
+        return {
+            "capture_directory": str(config.SCREENSHOTS_DIR),
+            "capture_directory_expanded": str(capture_dir)
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get capture directory: {str(e)}"
+        )
+
+
+class OpenFolderRequest(BaseModel):
+    path: str
+
+
+@router.post("/open-folder")
+async def open_folder(request: OpenFolderRequest) -> Dict[str, Any]:
+    """
+    Open a folder in Finder (macOS).
+    
+    Request body:
+        - path: str - Path to the folder to open
+    
+    Returns:
+        - success: bool
+        - message: str
+    """
+    try:
+        folder_path = request.path
+        
+        # Expand user path
+        from pathlib import Path
+        expanded_path = Path(folder_path).expanduser()
+        
+        if not expanded_path.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=f"Folder does not exist: {expanded_path}"
+            )
+        
+        # Open folder in Finder (macOS)
+        subprocess.run(
+            ['open', str(expanded_path)],
+            check=True
+        )
+        
+        return {
+            "success": True,
+            "message": f"Folder opened in Finder: {expanded_path}"
+        }
+    except subprocess.CalledProcessError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to open folder: {str(e)}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error opening folder: {str(e)}"
+        )
+
+
+@router.get("/get-file")
+async def get_file(path: str):
+    """
+    Get a file from the capture directory.
+    
+    Query params:
+        - path: str - Path to the file
+    
+    Returns:
+        - File content
+    """
+    try:
+        from pathlib import Path
+        from fastapi.responses import FileResponse
+        
+        file_path = Path(path)
+        
+        if not file_path.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=f"File not found: {path}"
+            )
+        
+        # Security check: ensure file is in capture directory
+        config_path = project_root / "screenshot-capture-service" / "config.py"
+        if config_path.exists():
+            import importlib.util
+            spec = importlib.util.spec_from_file_location("config", config_path)
+            config = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(config)
+            capture_dir = config.SCREENSHOTS_DIR.expanduser()
+            
+            try:
+                file_path.resolve().relative_to(capture_dir.resolve())
+            except ValueError:
+                raise HTTPException(
+                    status_code=403,
+                    detail="File is not in capture directory"
+                )
+        
+        return FileResponse(str(file_path))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error getting file: {str(e)}"
+        )
+
+
+@router.get("/capture-files")
+async def list_capture_files() -> Dict[str, Any]:
+    """
+    List all image files in the capture directory.
+    
+    Returns:
+        - files: List of file information (name, path, size, modified)
+    """
+    try:
+        # Import config from screenshot-capture-service
+        config_path = project_root / "screenshot-capture-service" / "config.py"
+        if not config_path.exists():
+            raise HTTPException(
+                status_code=500,
+                detail="Config file not found"
+            )
+        
+        # Read config to get SCREENSHOTS_DIR
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("config", config_path)
+        config = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(config)
+        
+        capture_dir = config.SCREENSHOTS_DIR.expanduser()
+        
+        if not capture_dir.exists():
+            return {
+                "files": [],
+                "directory": str(capture_dir)
+            }
+        
+        # List all image files
+        image_extensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp']
+        files = []
+        
+        for file_path in capture_dir.iterdir():
+            if file_path.is_file() and file_path.suffix.lower() in image_extensions:
+                stat = file_path.stat()
+                files.append({
+                    "name": file_path.name,
+                    "path": str(file_path),
+                    "size": stat.st_size,
+                    "modified": stat.st_mtime
+                })
+        
+        # Sort by modified time (newest first)
+        files.sort(key=lambda x: x['modified'], reverse=True)
+        
+        return {
+            "files": files,
+            "directory": str(capture_dir)
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to list capture files: {str(e)}"
+        )
 
 
 @router.post("/start")
