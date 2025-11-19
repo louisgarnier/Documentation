@@ -4,56 +4,56 @@ Guide complet pour utiliser le Screenshot Capture Service.
 
 ## 🚀 Démarrage rapide
 
-### 1. Démarrer le service
+### ⚠️ IMPORTANT : Mode Capture Unifié (Nouveau Workflow)
 
-```bash
-# Option 1 : Démarrer en mode interactif (recommandé pour débuter)
-python3 screenshot-capture-service/start-service.py
+**Le système fonctionne maintenant avec un seul bouton** qui contrôle tout :
 
-# Option 2 : Démarrer en arrière-plan
-python3 screenshot-capture-service/screenshot-service.py &
-```
+- **Bouton "Capture Mode: OFF"** → Démarre Service API + Watcher
+- **Bouton "Capture Mode: ON"** → Arrête Watcher + Service API
 
-Le service démarre sur `http://localhost:5001`.
+**Plus besoin de démarrer le Service API manuellement !** Le bouton s'en charge automatiquement.
 
-### 2. Activer le mode capture
+### 1. Activer le Mode Capture (depuis l'interface web)
 
-```bash
-# Depuis un terminal
-curl -X POST http://localhost:5001/start
+1. Ouvrir une page de test case dans l'interface web
+2. Cliquer sur le bouton **"Capture Mode: OFF"**
+3. Attendre quelques secondes (le service démarre automatiquement)
+4. Les voyants affichent :
+   - 🟢 **Service API: ON**
+   - 🟢 **Capture Mode: ACTIVE**
 
-# Ou depuis l'interface web (Phase 7)
-# Cliquer sur "Enable Capture Mode"
-```
+**C'est tout !** Le Service API et le Watcher sont maintenant actifs.
 
-### 3. Prendre une capture
+### 2. Prendre une capture
 
 1. Utiliser le raccourci macOS standard : **Shift+Cmd+4**
 2. Sélectionner la zone à capturer
 3. Le popup apparaîtra automatiquement
 
-### 4. Remplir le popup
+### 3. Remplir le popup
 
 - **Screenshot Name** : Nom de la capture (ex: `orderinput`)
 - **Test Case** : Numéro du test case (ex: `TC05`)
 - **Step #** : Numéro de l'étape (ex: `1`)
 - **Description** : Description détaillée de la capture
 
-### 5. Sauvegarde automatique
+### 4. Sauvegarde automatique
 
 Les fichiers sont automatiquement sauvegardés dans :
 - **Image** : `~/Documents/TestCaseScreenshots/TC05_step1_orderinput.png`
 - **Description** : `~/Documents/TestCaseScreenshots/TC05_step1_orderinput.txt`
 
-## 📋 Commandes Terminal
+## 📋 Commandes Terminal (Optionnel)
 
-### Gestion du service
+### Gestion manuelle du service (si nécessaire)
+
+**Note** : Normalement, le service est géré automatiquement via l'interface web. Ces commandes sont utiles pour le dépannage.
 
 ```bash
-# Démarrer le service
+# Démarrer le service manuellement
 python3 screenshot-capture-service/start-service.py
 
-# Arrêter le service
+# Arrêter le service manuellement
 python3 screenshot-capture-service/stop-service.py
 
 # Vérifier si le service tourne

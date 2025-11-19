@@ -242,3 +242,148 @@ export const healthAPI = {
   },
 };
 
+/**
+ * Screenshot Capture Service API
+ * Handles communication with the local screenshot capture service (localhost:5001)
+ */
+const CAPTURE_SERVICE_URL = 'http://localhost:5001';
+
+async function fetchCaptureService<T>(
+  endpoint: string,
+  options?: RequestInit
+): Promise<T> {
+  const url = `${CAPTURE_SERVICE_URL}${endpoint}`;
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options?.headers,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ 
+        message: `HTTP error! status: ${response.status}` 
+      }));
+      throw new Error(error.message || error.detail || `HTTP error! status: ${response.status}`);
+    }
+
+    // Handle 204 No Content
+    if (response.status === 204) {
+      return {} as T;
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error(`Capture Service Error (${endpoint}):`, error);
+    throw error;
+  }
+}
+
+export const captureServiceAPI = {
+  /**
+   * Get current status of the capture service (via backend API)
+   */
+  getStatus: async (): Promise<{
+    service_running: boolean;
+    service_process_running: boolean;
+    watcher_running: boolean;
+    status: 'on' | 'off' | 'starting' | 'error';
+  }> => {
+    return fetchAPI<{
+      service_running: boolean;
+      service_process_running: boolean;
+      watcher_running: boolean;
+      status: 'on' | 'off' | 'starting' | 'error';
+    }>('/api/capture-service/status');
+  },
+
+  /**
+   * Start the capture service API
+   */
+  startService: async (): Promise<{
+    success: boolean;
+    message: string;
+  }> => {
+    return fetchAPI<{
+      success: boolean;
+      message: string;
+    }>('/api/capture-service/start', {
+      method: 'POST',
+    });
+  },
+
+  /**
+   * Stop the capture service API
+   */
+  stopService: async (): Promise<{
+    success: boolean;
+    message: string;
+  }> => {
+    return fetchAPI<{
+      success: boolean;
+      message: string;
+    }>('/api/capture-service/stop', {
+      method: 'POST',
+    });
+  },
+
+  /**
+   * Get watcher status (direct call to capture service)
+   */
+  getWatcherStatus: async (): Promise<{
+    watcher_running: boolean;
+    watcher_pid: number | null;
+  }> => {
+    return fetchCaptureService<{
+      watcher_running: boolean;
+      watcher_pid: number | null;
+    }>('/status');
+  },
+
+  /**
+   * Start/activate the capture mode
+   */
+  start: async (): Promise<{
+    status: string;
+    message: string;
+  }> => {
+    return fetchCaptureService<{
+      status: string;
+      message: string;
+    }>('/start', {
+      method: 'POST',
+    });
+  },
+
+  /**
+   * Stop/deactivate the capture mode
+   */
+  stop: async (): Promise<{
+    status: string;
+    message: string;
+  }> => {
+    return fetchCaptureService<{
+      status: string;
+      message: string;
+    }>('/stop', {
+      method: 'POST',
+    });
+  },
+
+  /**
+   * Health check for the capture service
+   */
+  health: async (): Promise<{
+    status: string;
+    service: string;
+  }> => {
+    return fetchCaptureService<{
+      status: string;
+      service: string;
+    }>('/health');
+  },
+};
+

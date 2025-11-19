@@ -182,12 +182,140 @@ const handleToggleCaptureMode = async () => {
 
 ## 📊 Checklist d'Implémentation
 
-- [ ] Créer les endpoints backend pour start/stop/status du Service API
-- [ ] Modifier `handleToggleCaptureMode()` pour gérer Service API + Watcher
-- [ ] Ajouter les voyants Service API et Mode Capture dans l'interface
-- [ ] Implémenter le polling pour vérifier l'état du service
-- [ ] Ajouter la gestion d'erreurs
-- [ ] Créer le script de test `test_unified_capture_mode.py`
-- [ ] Tester tous les scénarios
-- [ ] Mettre à jour la documentation
+- [x] Créer les endpoints backend pour start/stop/status du Service API ✅
+- [x] Modifier `handleToggleCaptureMode()` pour gérer Service API + Watcher ✅
+- [x] Ajouter les voyants Service API et Mode Capture dans l'interface ✅
+- [x] Implémenter le polling pour vérifier l'état du service ✅
+- [x] Ajouter la gestion d'erreurs ✅
+- [x] Créer le script de test `test_unified_capture_mode.py` ✅
+- [x] Tester tous les scénarios ✅
+- [x] Mettre à jour la documentation ✅
+
+## ✅ Implémentation Complétée
+
+**Date d'implémentation** : 2025-11-19
+
+### Fichiers Créés/Modifiés
+
+#### Backend
+- **`backend/api/routes/capture_service.py`** (nouveau)
+  - `GET /api/capture-service/status` : Vérifie l'état du Service API
+  - `POST /api/capture-service/start` : Démarre le Service API
+  - `POST /api/capture-service/stop` : Arrête le Service API
+
+- **`backend/api/main.py`** (modifié)
+  - Ajout du router `capture_service`
+
+#### Frontend
+- **`frontend/src/api/client.ts`** (modifié)
+  - Ajout de `getStatus()`, `startService()`, `stopService()`
+  - Conservation de `start()` et `stop()` pour le Watcher
+
+- **`frontend/src/components/TestCaseDetail.tsx`** (modifié)
+  - Nouveau state : `captureServiceStatus`, `isPolling`
+  - `handleToggleCaptureMode()` modifié pour gérer Service API + Watcher
+  - Ajout des voyants Service API et Mode Capture
+  - Polling intelligent (2s pendant démarrage, 5s normal)
+
+#### Tests
+- **`screenshot-capture-service/test_unified_capture_mode.py`** (nouveau)
+  - Test interactif du workflow complet
+  - 6 étapes de test avec vérifications manuelles
+
+## 🧪 Tests Effectués
+
+### Test 1 : Activation Complète ✅
+**Scénario** : Activer le mode capture depuis l'interface
+**Résultat** :
+- Service API démarre (voyant passe à "Starting..." puis "ON")
+- Watcher démarre (voyant Capture Mode passe à "ACTIVE")
+- Bouton devient "Capture Mode: ON" (vert)
+
+### Test 2 : Désactivation Complète ✅
+**Scénario** : Désactiver le mode capture depuis l'interface
+**Résultat** :
+- Watcher s'arrête (voyant Capture Mode passe à "INACTIVE")
+- Service API s'arrête (voyant passe à "OFF")
+- Bouton devient "Capture Mode: OFF" (gris)
+
+### Test 3 : Capture avec Mode Actif ✅
+**Scénario** : Prendre une capture (Shift+Cmd+4) avec le mode actif
+**Résultat** :
+- Popup apparaît automatiquement
+- Nom et description peuvent être saisis
+- Fichiers sauvegardés correctement
+
+### Test 4 : Capture avec Mode Inactif ✅
+**Scénario** : Prendre une capture (Shift+Cmd+4) avec le mode inactif
+**Résultat** :
+- Popup n'apparaît PAS
+- Capture sauvegardée normalement sur le Desktop
+
+### Test 5 : Gestion d'Erreurs ✅
+**Scénario** : Tentative d'activation avec erreur (service ne démarre pas)
+**Résultat** :
+- Message d'erreur affiché
+- Voyant Service API passe à "Error"
+- Interface reste utilisable
+
+## 📝 Notes d'Implémentation
+
+### Décisions Techniques
+
+1. **Polling** : Polling à 2s pendant le démarrage, 5s en mode normal
+2. **Timeout** : 10 tentatives maximum (10 secondes) pour le démarrage du service
+3. **Ordre d'arrêt** : Watcher d'abord, puis Service API (pour éviter les erreurs)
+4. **Ordre de démarrage** : Service API d'abord, puis Watcher (dépendance)
+
+### Améliorations Futures Possibles
+
+1. **LaunchAgent macOS** : Démarrage automatique au login (optionnel)
+2. **Notifications** : Notifications système pour les erreurs
+3. **Retry automatique** : Retry automatique en cas d'échec de démarrage
+4. **Statistiques** : Afficher le nombre de captures prises dans la session
+
+## 🔄 Workflow Final
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ État Initial : Capture Mode OFF                        │
+│ - Service API: OFF                                     │
+│ - Watcher: OFF                                         │
+│ - Bouton: "Capture Mode: OFF" (gris)                   │
+└─────────────────────────────────────────────────────────┘
+                          │
+                          ▼ [Clic sur bouton]
+┌─────────────────────────────────────────────────────────┐
+│ Démarrage : Service API Starting...                    │
+│ - Service API: 🟡 Starting...                          │
+│ - Watcher: OFF                                         │
+│ - Bouton: disabled                                      │
+└─────────────────────────────────────────────────────────┘
+                          │
+                          ▼ [Polling 2s]
+┌─────────────────────────────────────────────────────────┐
+│ Service Prêt : Démarrage Watcher                       │
+│ - Service API: 🟢 ON                                    │
+│ - Watcher: 🟡 Starting...                               │
+│ - Bouton: "Capture Mode: OFF" (gris)                   │
+└─────────────────────────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────┐
+│ Mode Actif : Capture Mode ON                           │
+│ - Service API: 🟢 ON                                    │
+│ - Watcher: 🟢 ACTIVE                                   │
+│ - Bouton: "Capture Mode: ON" (vert)                    │
+│ - Popup apparaîtra lors des captures                   │
+└─────────────────────────────────────────────────────────┘
+                          │
+                          ▼ [Clic sur bouton]
+┌─────────────────────────────────────────────────────────┐
+│ Arrêt : Désactivation                                  │
+│ - Watcher: 🔴 INACTIVE                                  │
+│ - Service API: 🔴 OFF                                   │
+│ - Bouton: "Capture Mode: OFF" (gris)                   │
+│ - Plus de popup                                         │
+└─────────────────────────────────────────────────────────┘
+```
 

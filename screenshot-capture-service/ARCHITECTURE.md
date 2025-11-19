@@ -18,28 +18,22 @@ Le système est composé de **2 composants principaux** qui fonctionnent ensembl
 - **Fonction** : Détecte les captures et affiche le popup
 - **État** : Démarre/arrête selon l'activation du mode
 
-## 🔄 Workflow
+## 🔄 Workflow (Mode Unifié)
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│ 1. DÉMARRER LE SERVICE API                              │
-│    python3 screenshot-service.py                        │
-│    → Service écoute sur localhost:5001                  │
-│    → Watcher = ARRÊTÉ (pas encore actif)                │
+│ 1. CLICKER SUR "CAPTURE MODE: OFF" (interface web)     │
+│    → Service API démarre automatiquement                │
+│    → Voyant: 🟡 Starting...                             │
+│    → Service API prêt (voyant: 🟢 ON)                    │
+│    → Watcher démarre automatiquement                     │
+│    → Voyant: 🟢 ACTIVE                                  │
+│    → Bouton devient "Capture Mode: ON" (vert)           │
 └─────────────────────────────────────────────────────────┘
                           │
                           ▼
 ┌─────────────────────────────────────────────────────────┐
-│ 2. ACTIVER LE MODE CAPTURE (depuis interface web)       │
-│    POST http://localhost:5001/start                     │
-│    → Service démarre le Watcher                         │
-│    → Watcher surveille le Desktop                       │
-│    → Mode = ACTIF ✅                                     │
-└─────────────────────────────────────────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────────────┐
-│ 3. PRENDRE UNE CAPTURE (Shift+Cmd+4)                    │
+│ 2. PRENDRE UNE CAPTURE (Shift+Cmd+4)                    │
 │    → Watcher détecte la capture                         │
 │    → Popup apparaît                                     │
 │    → Fichiers sauvegardés                               │
@@ -47,87 +41,96 @@ Le système est composé de **2 composants principaux** qui fonctionnent ensembl
                           │
                           ▼
 ┌─────────────────────────────────────────────────────────┐
-│ 4. DÉSACTIVER LE MODE CAPTURE                           │
-│    POST http://localhost:5001/stop                      │
-│    → Service arrête le Watcher                          │
-│    → Watcher = ARRÊTÉ                                   │
-│    → Mode = INACTIF ❌                                   │
+│ 3. CLICKER SUR "CAPTURE MODE: ON" (interface web)      │
+│    → Watcher s'arrête (voyant: 🔴 INACTIVE)             │
+│    → Service API s'arrête (voyant: 🔴 OFF)               │
+│    → Bouton devient "Capture Mode: OFF" (gris)          │
 │    → Plus de popup même si capture prise                │
 └─────────────────────────────────────────────────────────┘
 ```
 
-## 📋 États du système
+## 📋 États du système (Mode Unifié)
 
-### État 1 : Service démarré, Mode INACTIF
+### État 1 : Mode INACTIF (Initial)
 ```
-Service API : ✅ En cours d'exécution (localhost:5001)
+Service API : ❌ Arrêté
 Watcher     : ❌ Arrêté
 Popup       : ❌ N'apparaîtra PAS
+Bouton      : "Capture Mode: OFF" (gris)
 ```
 
-### État 2 : Service démarré, Mode ACTIF
+### État 2 : Mode ACTIF
 ```
 Service API : ✅ En cours d'exécution (localhost:5001)
 Watcher     : ✅ En cours d'exécution (surveille Desktop)
 Popup       : ✅ Apparaîtra lors des captures
+Bouton      : "Capture Mode: ON" (vert)
+Voyants     : 🟢 Service API: ON | 🟢 Capture Mode: ACTIVE
 ```
 
-## 🚀 Démarrage
+### État 3 : Démarrage en cours
+```
+Service API : 🟡 Démarrage en cours...
+Watcher     : ❌ Arrêté (en attente)
+Popup       : ❌ N'apparaîtra PAS encore
+Bouton      : "Capture Mode: OFF" (gris, disabled)
+Voyants     : 🟡 Service API: Starting... | 🔴 Capture Mode: INACTIVE
+```
 
-### ⚠️ IMPORTANT : Deux composants indépendants
+## 🚀 Démarrage (Mode Unifié)
 
-**Service API** et **Watcher** sont deux processus séparés :
+### ⚠️ IMPORTANT : Mode Capture Unifié
 
-- **Service API** : Doit être démarré/arrêté **manuellement** avec les scripts
-- **Watcher** : Démarre/arrête automatiquement via le bouton "Capture Mode ON/OFF"
+**Le système fonctionne maintenant avec un seul bouton** qui contrôle Service API + Watcher :
 
-### Étape 1 : Démarrer le Service API (une seule fois)
+- **Bouton "Capture Mode: OFF"** → Démarre automatiquement Service API + Watcher
+- **Bouton "Capture Mode: ON"** → Arrête automatiquement Watcher + Service API
+
+**Plus besoin de démarrer le Service API manuellement !**
+
+### Workflow Simplifié
+
+```
+1. Ouvrir une page de test case dans l'interface web
+2. Cliquer sur "Capture Mode: OFF"
+   → Service API démarre automatiquement (voyant: 🟡 Starting...)
+   → Service API prêt (voyant: 🟢 ON)
+   → Watcher démarre (voyant: 🟢 ACTIVE)
+   → Bouton devient "Capture Mode: ON" (vert)
+3. Prendre des captures (Shift+Cmd+4)
+   → Popup apparaît automatiquement
+4. Cliquer sur "Capture Mode: ON" pour désactiver
+   → Watcher s'arrête
+   → Service API s'arrête
+   → Bouton devient "Capture Mode: OFF" (gris)
+```
+
+### Gestion Manuelle (Optionnel)
+
+Si vous devez gérer le service manuellement (dépannage) :
+
 ```bash
-# Option 1 : Avec le script (recommandé)
+# Démarrer le service manuellement
 python3 screenshot-capture-service/start-service.py
 
-# Option 2 : En arrière-plan
-python3 screenshot-capture-service/screenshot-service.py &
-```
-
-**Résultat** : Le service API tourne sur `localhost:5001`, mais le watcher est **ARRÊTÉ**.
-
-### Arrêter le Service API (si nécessaire)
-```bash
-# Utiliser le script d'arrêt
+# Arrêter le service manuellement
 python3 screenshot-capture-service/stop-service.py
 ```
 
-**Note** : Le Service API tourne en continu une fois démarré. Il ne s'arrête que si vous l'arrêtez manuellement.
-
-### Étape 2 : Activer le Mode Capture (depuis l'interface web)
-- Cliquer sur le bouton "Capture Mode: OFF" dans l'interface
-- Ou utiliser : `curl -X POST http://localhost:5001/start`
-
-**Résultat** : Le watcher démarre et surveille le Desktop.
-
-### Étape 3 : Prendre des captures
-- Utiliser Shift+Cmd+4
-- Le popup apparaît automatiquement
-
-### Étape 4 : Désactiver le Mode Capture
-- Cliquer sur le bouton "Capture Mode: ON" dans l'interface
-- Ou utiliser : `curl -X POST http://localhost:5001/stop`
-
-**Résultat** : Le watcher s'arrête, plus de popup.
-
 ## ⚠️ Important
 
-### Service API vs Watcher
+### Service API vs Watcher (Mode Unifié)
 
 | Composant | Démarrage/Arrêt | Contrôle |
 |-----------|----------------|----------|
-| **Service API** | Manuel (scripts `start-service.py` / `stop-service.py`) | Tourne en continu une fois démarré |
-| **Watcher** | Automatique (bouton "Capture Mode ON/OFF") | Démarre/arrête selon le mode |
+| **Service API** | Automatique (bouton "Capture Mode ON/OFF") | Démarre/arrête avec le mode |
+| **Watcher** | Automatique (bouton "Capture Mode ON/OFF") | Démarre/arrête avec le mode |
 
-- **Le Service API doit TOUJOURS être démarré** pour que l'interface web fonctionne
-- **Le bouton "Capture Mode ON/OFF"** contrôle uniquement le Watcher, pas le Service API
-- **Le Watcher démarre/arrête** selon l'activation du mode
+**Nouveau comportement** :
+- **Le bouton "Capture Mode ON/OFF"** contrôle **Service API + Watcher** ensemble
+- **Service API ne tourne plus en continu** : seulement quand le mode est actif
+- **Un seul bouton** pour tout activer/désactiver
+- **Voyants visuels** pour voir l'état du Service API et du Mode Capture
 - **Un seul Watcher** doit tourner à la fois (le système nettoie automatiquement)
 
 ## 🔍 Vérification
@@ -143,8 +146,17 @@ ps aux | grep screenshot-watcher  # Watcher (seulement si mode actif)
 
 ## 🐛 Dépannage
 
-**Problème** : "Capture service is not available"
-- **Solution** : Démarrer le Service API (`screenshot-service.py`)
+**Problème** : "Capture service is not available" ou voyant "Error"
+- **Solution** : 
+  1. Vérifier que le backend est démarré (`cd backend && uvicorn api.main:app --reload`)
+  2. Cliquer à nouveau sur "Capture Mode: OFF"
+  3. Si le problème persiste, démarrer manuellement : `python3 screenshot-capture-service/start-service.py`
+
+**Problème** : Service API reste en "Starting..." indéfiniment
+- **Solution** : 
+  1. Vérifier les logs : `python3 screenshot-capture-service/view-logs.py -n 20`
+  2. Arrêter manuellement : `python3 screenshot-capture-service/stop-service.py`
+  3. Réessayer depuis l'interface
 
 **Problème** : Popup apparaît même quand mode OFF
 - **Solution** : Vérifier qu'il n'y a qu'un seul watcher, redémarrer le service
@@ -154,4 +166,10 @@ ps aux | grep screenshot-watcher  # Watcher (seulement si mode actif)
   ```bash
   pkill -f screenshot-watcher
   ```
+
+**Problème** : Le bouton ne répond pas
+- **Solution** : 
+  1. Vérifier que le backend est accessible
+  2. Rafraîchir la page
+  3. Vérifier la console du navigateur pour les erreurs
 

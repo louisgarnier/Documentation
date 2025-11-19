@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { TestCase, TestStep } from '@/src/types';
 import { ChevronLeftIcon } from './icons/ChevronLeftIcon';
-import { testCasesAPI, stepsAPI } from '@/src/api/client';
+import { testCasesAPI, stepsAPI, captureServiceAPI } from '@/src/api/client';
 import { SortableStepCard } from './SortableStepCard';
 import { AddStepForm } from './AddStepForm';
 
@@ -32,6 +32,14 @@ export const TestCaseDetail: React.FC<TestCaseDetailProps> = ({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reordering, setReordering] = useState(false);
+  
+  // Capture service state
+  const [captureModeActive, setCaptureModeActive] = useState(false);
+  const [captureServiceStatus, setCaptureServiceStatus] = useState<'on' | 'off' | 'starting' | 'error'>('off');
+  const [captureServiceAvailable, setCaptureServiceAvailable] = useState(false);
+  const [captureLoading, setCaptureLoading] = useState(false);
+  const [captureError, setCaptureError] = useState<string | null>(null);
+  const [isPolling, setIsPolling] = useState(false);
 
   // Configure sensors for drag and drop
   const sensors = useSensors(
@@ -48,6 +56,133 @@ export const TestCaseDetail: React.FC<TestCaseDetailProps> = ({
     hour: '2-digit',
     minute: '2-digit',
   });
+
+  // Check capture service status on mount and periodically
+  useEffect(() => {
+    const checkCaptureServiceStatus = async () => {
+      try {
+        const status = await captureServiceAPI.getStatus();
+        setCaptureServiceAvailable(status.service_running || status.service_process_running);
+        setCaptureServiceStatus(status.status);
+        setCaptureModeActive(status.watcher_running);
+        setCaptureError(null);
+        
+        // Stop polling if service is fully on and watcher is running
+        if (status.service_running && status.watcher_running && isPolling) {
+          setIsPolling(false);
+        }
+      } catch (err) {
+        setCaptureServiceAvailable(false);
+        setCaptureServiceStatus('error');
+        setCaptureModeActive(false);
+        setCaptureError('Failed to check capture service status');
+        console.error('Failed to check capture service status:', err);
+      }
+    };
+
+    // Check immediately
+    checkCaptureServiceStatus();
+
+    // Poll more frequently if starting or if polling is active
+    const pollInterval = isPolling ? 2000 : 5000;
+    const interval = setInterval(checkCaptureServiceStatus, pollInterval);
+
+    return () => clearInterval(interval);
+  }, [isPolling]);
+
+  const handleToggleCaptureMode = async () => {
+    try {
+      setCaptureLoading(true);
+      setCaptureError(null);
+
+      if (captureModeActive) {
+        // Deactivate: Stop Watcher then Service API
+        try {
+          // Stop watcher first
+          await captureServiceAPI.stop();
+          setCaptureModeActive(false);
+          
+          // Then stop service API
+          await captureServiceAPI.stopService();
+          setCaptureServiceStatus('off');
+          setCaptureServiceAvailable(false);
+          
+          console.log('Capture mode and service deactivated');
+        } catch (err) {
+          // Even if stop fails, try to stop service
+          try {
+            await captureServiceAPI.stopService();
+          } catch (stopErr) {
+            console.error('Error stopping service:', stopErr);
+          }
+          throw err;
+        }
+      } else {
+        // Activate: Start Service API then Watcher
+        try {
+          // Start service API first
+          setCaptureServiceStatus('starting');
+          setIsPolling(true);
+          const startResult = await captureServiceAPI.startService();
+          
+          if (!startResult.success) {
+            throw new Error(startResult.message || 'Failed to start service');
+          }
+          
+          // Wait a bit for service to start, then check status
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          // Poll until service is ready
+          let attempts = 0;
+          const maxAttempts = 10;
+          while (attempts < maxAttempts) {
+            const status = await captureServiceAPI.getStatus();
+            if (status.service_running) {
+              setCaptureServiceStatus('on');
+              setCaptureServiceAvailable(true);
+              
+              // Now start watcher
+              await captureServiceAPI.start();
+              setCaptureModeActive(true);
+              console.log('Capture mode and service activated');
+              break;
+            }
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            attempts++;
+          }
+          
+          if (attempts >= maxAttempts) {
+            throw new Error('Service did not start in time');
+          }
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : 'Failed to start service';
+          setCaptureError(errorMessage);
+          setCaptureServiceStatus('error');
+          console.error('Error starting service:', err);
+          throw err;
+        } finally {
+          setIsPolling(false);
+        }
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to toggle capture mode';
+      setCaptureError(errorMessage);
+      console.error('Error toggling capture mode:', err);
+      
+      // Try to refresh status
+      try {
+        const status = await captureServiceAPI.getStatus();
+        setCaptureServiceStatus(status.status);
+        setCaptureModeActive(status.watcher_running);
+        setCaptureServiceAvailable(status.service_running);
+      } catch (statusErr) {
+        setCaptureServiceAvailable(false);
+        setCaptureServiceStatus('error');
+      }
+    } finally {
+      setCaptureLoading(false);
+    }
+  };
 
   const handleGoBack = () => {
     router.push('/');
@@ -140,36 +275,114 @@ export const TestCaseDetail: React.FC<TestCaseDetailProps> = ({
           <ChevronLeftIcon className="w-5 h-5" />
           <span>Back to List</span>
         </button>
-        {!isEditing ? (
-          <button
-            onClick={() => setIsEditing(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-          >
-            Edit
-          </button>
-        ) : (
-          <div className="flex space-x-2">
+        <div className="flex flex-col items-end space-y-2">
+          <div className="flex items-center space-x-3">
+            {/* Capture Mode Button */}
             <button
-              onClick={handleCancel}
-              disabled={saving}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+              onClick={handleToggleCaptureMode}
+              disabled={captureLoading || captureServiceStatus === 'starting'}
+              className={`px-4 py-2 rounded-md font-medium transition-colors duration-200 flex items-center space-x-2 ${
+                captureModeActive
+                  ? 'bg-green-600 text-white hover:bg-green-700'
+                  : 'bg-gray-600 text-white hover:bg-gray-700'
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+              title={
+                captureServiceStatus === 'starting'
+                  ? 'Service is starting, please wait...'
+                  : captureModeActive
+                  ? 'Click to disable capture mode'
+                  : 'Click to enable capture mode'
+              }
             >
-              Cancel
+              <span className={`w-2 h-2 rounded-full ${captureModeActive ? 'bg-green-300' : 'bg-gray-300'}`}></span>
+              <span>
+                {captureLoading
+                  ? 'Loading...'
+                  : captureModeActive
+                  ? 'Capture Mode: ON'
+                  : 'Capture Mode: OFF'}
+              </span>
             </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-            >
-              {saving ? 'Saving...' : 'Save'}
-            </button>
+            
+            {/* Service API Status Indicator */}
+            <div className="flex items-center space-x-2 px-3 py-2 rounded-md bg-gray-100 dark:bg-gray-800">
+              <span className={`w-2 h-2 rounded-full ${
+                captureServiceStatus === 'on' ? 'bg-green-500' :
+                captureServiceStatus === 'starting' ? 'bg-yellow-500 animate-pulse' :
+                captureServiceStatus === 'error' ? 'bg-red-500' :
+                'bg-gray-400'
+              }`}></span>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Service API: {
+                  captureServiceStatus === 'on' ? 'ON' :
+                  captureServiceStatus === 'starting' ? 'Starting...' :
+                  captureServiceStatus === 'error' ? 'Error' :
+                  'OFF'
+                }
+              </span>
+            </div>
           </div>
-        )}
+          
+          {/* Capture Mode Status Indicator */}
+          <div className="flex items-center space-x-2 px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-800">
+            <span className={`w-2 h-2 rounded-full ${captureModeActive ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+              Capture Mode: {captureModeActive ? 'ACTIVE' : 'INACTIVE'}
+            </span>
+          </div>
+          
+          {/* Error Message */}
+          {captureError && (
+            <div className="text-xs text-red-600 dark:text-red-400 max-w-md text-right">
+              {captureError}
+            </div>
+          )}
+        </div>
+        
+        <div className="flex items-center space-x-2">
+          {!isEditing ? (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              Edit
+            </button>
+          ) : (
+            <div className="flex space-x-2">
+              <button
+                onClick={handleCancel}
+                disabled={saving}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+              >
+                {saving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {error && (
         <div className="mb-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded">
           {error}
+        </div>
+      )}
+
+      {captureError && (
+        <div className="mb-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-700 dark:text-yellow-400 px-4 py-3 rounded">
+          <strong>Capture Service:</strong> {captureError}
+        </div>
+      )}
+
+      {captureModeActive && (
+        <div className="mb-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded">
+          <strong>Capture Mode Active:</strong> Take a screenshot (Shift+Cmd+4) and a popup will appear to name and describe it.
         </div>
       )}
 
