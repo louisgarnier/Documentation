@@ -43,13 +43,16 @@ export const ScreenshotUpload: React.FC<ScreenshotUploadProps> = ({
   // Load files when showing file list
   const loadCaptureFiles = async () => {
     setLoadingFiles(true);
+    setError(null);
     try {
+      // Always fetch fresh list when opening
       const filesData = await captureServiceAPI.listCaptureFiles();
       setCaptureFiles(filesData.files);
       setShowFileList(true);
     } catch (err) {
       console.error('Failed to load files:', err);
       setError('Failed to load files from capture directory');
+      setShowFileList(false);
     } finally {
       setLoadingFiles(false);
     }
@@ -60,24 +63,50 @@ export const ScreenshotUpload: React.FC<ScreenshotUploadProps> = ({
       setUploading(true);
       setError(null);
       
-      // Fetch the file from the backend
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/capture-service/get-file?path=${encodeURIComponent(filePath)}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch file');
+      console.log('Selecting file:', filePath);
+      
+      // Fetch the file from the backend using API client
+      // Add cache busting to avoid stale file references
+      const blob = await captureServiceAPI.getCaptureFile(filePath);
+      console.log('File fetched, size:', blob.size);
+      
+      // Determine file name and type
+      const fileName = filePath.split('/').pop() || 'screenshot.png';
+      const fileExtension = fileName.split('.').pop()?.toLowerCase() || 'png';
+      const mimeType = fileExtension === 'png' ? 'image/png' : 
+                      fileExtension === 'jpg' || fileExtension === 'jpeg' ? 'image/jpeg' :
+                      fileExtension === 'gif' ? 'image/gif' :
+                      fileExtension === 'bmp' ? 'image/bmp' : 'image/png';
+      
+      const file = new File([blob], fileName, { type: mimeType });
+      
+      const screenshot = await screenshotsAPI.upload(stepId, file);
+      
+      // Call the callback to refresh the screenshot list
+      if (onScreenshotUploaded) {
+        onScreenshotUploaded(screenshot);
       }
       
-      const blob = await response.blob();
-      const file = new File([blob], filePath.split('/').pop() || 'screenshot.png', { type: blob.type });
-      
-      await screenshotsAPI.upload(stepId, file);
-      if (onScreenshotUploaded) {
-        // Refresh the screenshot list
-        window.location.reload();
+      // Refresh the file list BEFORE closing to ensure we have the latest state
+      try {
+        const filesData = await captureServiceAPI.listCaptureFiles();
+        setCaptureFiles(filesData.files);
+      } catch (refreshErr) {
+        console.warn('Failed to refresh file list:', refreshErr);
       }
       
       setShowFileList(false);
     } catch (err) {
+      console.error('Error uploading file:', err);
       setError(err instanceof Error ? err.message : 'Failed to upload screenshot');
+      
+      // Refresh file list even on error to ensure consistency
+      try {
+        const filesData = await captureServiceAPI.listCaptureFiles();
+        setCaptureFiles(filesData.files);
+      } catch (refreshErr) {
+        console.warn('Failed to refresh file list after error:', refreshErr);
+      }
     } finally {
       setUploading(false);
     }
@@ -245,6 +274,7 @@ export const ScreenshotUpload: React.FC<ScreenshotUploadProps> = ({
                     src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/capture-service/get-file?path=${encodeURIComponent(file.path)}`}
                     alt={file.name}
                     className="w-full h-full object-cover"
+                    loading="lazy"
                     onError={(e) => {
                       (e.target as HTMLImageElement).style.display = 'none';
                       const parent = (e.target as HTMLImageElement).parentElement;

@@ -167,26 +167,34 @@ async def open_folder(request: OpenFolderRequest) -> Dict[str, Any]:
 
 
 @router.get("/get-file")
-async def get_file(path: str):
+async def get_file(path: str, _t: str = None):
     """
     Get a file from the capture directory.
     
     Query params:
         - path: str - Path to the file
+        - _t: str (optional) - Cache busting parameter (ignored)
     
     Returns:
         - File content
     """
     try:
-        from pathlib import Path
+        from pathlib import Path as PathLib
         from fastapi.responses import FileResponse
         
-        file_path = Path(path)
+        # Expand user path and resolve
+        file_path = PathLib(path).expanduser().resolve()
         
         if not file_path.exists():
             raise HTTPException(
                 status_code=404,
                 detail=f"File not found: {path}"
+            )
+        
+        if not file_path.is_file():
+            raise HTTPException(
+                status_code=400,
+                detail=f"Path is not a file: {path}"
             )
         
         # Security check: ensure file is in capture directory
@@ -196,17 +204,20 @@ async def get_file(path: str):
             spec = importlib.util.spec_from_file_location("config", config_path)
             config = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(config)
-            capture_dir = config.SCREENSHOTS_DIR.expanduser()
+            capture_dir = config.SCREENSHOTS_DIR.expanduser().resolve()
             
             try:
                 file_path.resolve().relative_to(capture_dir.resolve())
             except ValueError:
                 raise HTTPException(
                     status_code=403,
-                    detail="File is not in capture directory"
+                    detail=f"File is not in capture directory. File: {file_path}, Capture dir: {capture_dir}"
                 )
         
-        return FileResponse(str(file_path))
+        return FileResponse(
+            str(file_path),
+            media_type='image/png' if file_path.suffix.lower() == '.png' else 'image/jpeg'
+        )
     except HTTPException:
         raise
     except Exception as e:

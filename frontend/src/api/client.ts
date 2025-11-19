@@ -380,6 +380,30 @@ export const captureServiceAPI = {
   },
 
   /**
+   * Get file from capture directory
+   */
+  getCaptureFile: async (filePath: string): Promise<Blob> => {
+    // Add cache busting to ensure we get fresh file
+    const timestamp = Date.now();
+    const url = `${API_BASE_URL}/api/capture-service/get-file?path=${encodeURIComponent(filePath)}&_t=${timestamp}`;
+    const response = await fetch(url, {
+      cache: 'no-store',
+    });
+    if (!response.ok) {
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      try {
+        const error = await response.json();
+        errorMessage = error.detail || errorMessage;
+      } catch {
+        // If JSON parsing fails, use status text
+        errorMessage = response.statusText || errorMessage;
+      }
+      throw new Error(errorMessage);
+    }
+    return await response.blob();
+  },
+
+  /**
    * Start/activate the capture mode
    */
   start: async (): Promise<{
