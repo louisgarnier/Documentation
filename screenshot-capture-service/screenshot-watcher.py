@@ -8,6 +8,9 @@ import shutil
 import tempfile
 import os
 import json
+import signal
+import sys
+import threading
 from pathlib import Path
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
@@ -20,6 +23,12 @@ logger = get_logger("WATCHER")
 
 # Track processed files to avoid duplicates
 processed_files = set()
+
+# Global flag to check if watcher should be active
+# This will be set by the service when starting/stopping
+# Using threading.Lock for thread-safe access
+watcher_active = True
+watcher_lock = threading.Lock()
 
 
 class ScreenshotHandler(FileSystemEventHandler):
@@ -54,6 +63,15 @@ class ScreenshotHandler(FileSystemEventHandler):
     
     def on_created(self, event):
         """Appelé quand un nouveau fichier est créé"""
+        global watcher_active, watcher_lock
+        
+        # Vérifier si le watcher est actif (thread-safe)
+        with watcher_lock:
+            active = watcher_active
+        if not active:
+            self.logger.debug("Watcher is inactive, ignoring file creation event")
+            return
+        
         if event.is_directory:
             return
         
@@ -72,8 +90,22 @@ class ScreenshotHandler(FileSystemEventHandler):
             self.logger.debug(f"File already processed: {file_path.name}")
             return
         
+        # Vérifier IMMÉDIATEMENT si le watcher est toujours actif (thread-safe)
+        with watcher_lock:
+            active = watcher_active
+        if not active:
+            self.logger.debug("Watcher is inactive, ignoring file creation event (early check)")
+            return
+        
         # Attendre un peu pour s'assurer que le fichier est complètement écrit
         time.sleep(0.5)
+        
+        # Vérifier à nouveau après l'attente (le watcher peut avoir été arrêté pendant l'attente)
+        with watcher_lock:
+            active = watcher_active
+        if not active:
+            self.logger.info("Watcher was deactivated during file processing, ignoring")
+            return
         
         # Vérifier que le fichier existe toujours et est une capture
         if not file_path.exists():
@@ -87,16 +119,39 @@ class ScreenshotHandler(FileSystemEventHandler):
         if not is_screenshot:
             return
         
-        # Marquer comme traité
+        # Vérifier une dernière fois avant de traiter (thread-safe)
+        with watcher_lock:
+            active = watcher_active
+        if not active:
+            self.logger.info("Watcher was deactivated before processing screenshot, ignoring")
+            return
+        
+        # Marquer comme traité AVANT d'afficher le popup pour éviter les doublons
         processed_files.add(str(file_path))
         
         self.logger.info(f"Screenshot detected: {file_path.name}")
+        
+        # Vérifier à nouveau que le watcher est actif (au cas où il a été désactivé entre temps)
+        with watcher_lock:
+            active = watcher_active
+        if not active:
+            self.logger.info("Watcher was deactivated, ignoring screenshot")
+            return
         
         # Afficher popup pour nom et description
         self.show_naming_popup(file_path)
     
     def on_moved(self, event):
         """Appelé quand un fichier est déplacé/renommé (macOS crée d'abord un fichier temporaire puis le renomme)"""
+        global watcher_active, watcher_lock
+        
+        # Vérifier si le watcher est actif (thread-safe)
+        with watcher_lock:
+            active = watcher_active
+        if not active:
+            self.logger.debug("Watcher is inactive, ignoring file move event")
+            return
+        
         if event.is_directory:
             return
         
@@ -106,14 +161,60 @@ class ScreenshotHandler(FileSystemEventHandler):
         if event.src_path and Path(event.src_path).name.startswith('.'):
             if self.is_screenshot_file(dest_path):
                 self.logger.info(f"Screenshot file moved from temp: {dest_path.name}")
-                # Traiter comme une création (mais sans passer par on_created pour éviter la double détection)
-                if str(dest_path) not in processed_files:
-                    processed_files.add(str(dest_path))
-                    self.logger.info(f"Screenshot detected: {dest_path.name}")
-                    self.show_naming_popup(dest_path)
+                
+                # Ignorer si déjà traité
+                if str(dest_path) in processed_files:
+                    self.logger.debug(f"File already processed: {dest_path.name}")
+                    return
+                
+                # Vérifier à nouveau que le watcher est actif
+                with watcher_lock:
+                    active = watcher_active
+                if not active:
+                    self.logger.debug("Watcher is inactive, ignoring file move event")
+                    return
+                
+                # Attendre un peu pour s'assurer que le fichier est complètement écrit
+                time.sleep(0.5)
+                
+                # Vérifier à nouveau après l'attente
+                with watcher_lock:
+                    active = watcher_active
+                if not active:
+                    self.logger.info("Watcher was deactivated during file processing, ignoring")
+                    return
+                
+                # Vérifier que le fichier existe toujours
+                if not dest_path.exists():
+                    self.logger.debug(f"File no longer exists: {dest_path.name}")
+                    return
+                
+                # Marquer comme traité AVANT d'afficher le popup pour éviter les doublons
+                processed_files.add(str(dest_path))
+                
+                # Vérifier une dernière fois avant de traiter
+                with watcher_lock:
+                    active = watcher_active
+                if not active:
+                    self.logger.info("Watcher was deactivated before processing screenshot, ignoring")
+                    return
+                
+                self.logger.info(f"Screenshot detected (from move): {dest_path.name}")
+                
+                # Afficher popup pour nom et description
+                self.show_naming_popup(dest_path)
     
     def show_naming_popup(self, screenshot_path):
         """Affiche un popup unifié pour saisir toutes les informations de la capture"""
+        global watcher_active, watcher_lock
+        
+        # Vérifier une dernière fois que le watcher est actif avant d'afficher le popup (thread-safe)
+        with watcher_lock:
+            active = watcher_active
+        if not active:
+            self.logger.info("Watcher was deactivated, cancelling popup")
+            return
+        
         self.logger.info("Opening unified screenshot information dialog")
         
         # Utiliser le script Python avec tkinter qui s'exécute dans un processus séparé
@@ -270,8 +371,41 @@ class ScreenshotHandler(FileSystemEventHandler):
             )
 
 
+# Global observer reference for signal handler
+observer_instance = None
+
+def signal_handler(signum, frame):
+    """Handler pour les signaux d'arrêt"""
+    global watcher_active, observer_instance, watcher_lock
+    logger.info(f"Received signal {signum}, stopping watcher immediately...")
+    
+    # Désactiver IMMÉDIATEMENT pour empêcher tout traitement (thread-safe)
+    with watcher_lock:
+        watcher_active = False
+    
+    # Arrêter l'observer immédiatement pour éviter de traiter de nouveaux événements
+    if observer_instance:
+        try:
+            logger.info("Stopping observer from signal handler...")
+            observer_instance.stop()
+            observer_instance.join(timeout=0.5)
+        except Exception as e:
+            logger.error(f"Error stopping observer: {e}")
+    
+    # Sortir immédiatement avec os._exit pour forcer l'arrêt (ne déclenche pas les handlers finally)
+    logger.info("Exiting watcher process immediately")
+    os._exit(0)
+
 def main():
     """Point d'entrée principal du watcher"""
+    global watcher_active, observer_instance, watcher_lock
+    
+    # Enregistrer les handlers de signaux pour arrêt propre
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGINT, signal_handler)
+    
+    with watcher_lock:
+        watcher_active = True
     logger.info("Starting screenshot watcher")
     
     # Vérifier que le dossier Desktop existe
@@ -283,6 +417,7 @@ def main():
     event_handler = ScreenshotHandler()
     observer = Observer()
     observer.schedule(event_handler, str(config.DESKTOP_DIR), recursive=False)
+    observer_instance = observer  # Garder une référence globale
     
     # Démarrer l'observation
     observer.start()
@@ -291,13 +426,26 @@ def main():
     try:
         # Garder le script actif
         while True:
-            time.sleep(1)
+            with watcher_lock:
+                active = watcher_active
+            if not active:
+                logger.info("Watcher active flag set to False, stopping...")
+                break
+            time.sleep(0.5)
     except KeyboardInterrupt:
-        logger.info("Watcher stopped by user")
+        logger.info("Watcher stopped by user (KeyboardInterrupt)")
+        with watcher_lock:
+            watcher_active = False
+    finally:
+        # Arrêter l'observer proprement
+        logger.info("Stopping observer...")
+        with watcher_lock:
+            watcher_active = False  # Désactiver IMMÉDIATEMENT pour éviter de traiter de nouveaux événements
+        # Arrêter l'observer avant de continuer
         observer.stop()
-    
-    observer.join()
-    logger.info("Watcher shutdown complete")
+        # Attendre un peu pour que les événements en cours se terminent
+        observer.join(timeout=1)
+        logger.info("Watcher shutdown complete")
 
 
 if __name__ == "__main__":
