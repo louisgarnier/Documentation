@@ -9,6 +9,7 @@ import { ChevronLeftIcon } from './icons/ChevronLeftIcon';
 import { testCasesAPI, stepsAPI, captureServiceAPI } from '@/src/api/client';
 import { SortableStepCard } from './SortableStepCard';
 import { AddStepForm } from './AddStepForm';
+import { LoadStepModal } from './LoadStepModal';
 
 interface TestCaseDetailProps {
   testCase: TestCase;
@@ -32,6 +33,7 @@ export const TestCaseDetail: React.FC<TestCaseDetailProps> = ({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reordering, setReordering] = useState(false);
+  const [loadStepModalOpen, setLoadStepModalOpen] = useState(false);
   
   // Capture service state
   const [captureModeActive, setCaptureModeActive] = useState(false);
@@ -340,6 +342,12 @@ export const TestCaseDetail: React.FC<TestCaseDetailProps> = ({
         </div>
         
         <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setLoadStepModalOpen(true)}
+            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+          >
+            Load Step
+          </button>
           {!isEditing ? (
             <button
               onClick={() => setIsEditing(true)}
@@ -487,6 +495,18 @@ export const TestCaseDetail: React.FC<TestCaseDetailProps> = ({
           </div>
         </div>
       </div>
+
+      <LoadStepModal
+        testCaseId={testCase.id}
+        isOpen={loadStepModalOpen}
+        onClose={() => setLoadStepModalOpen(false)}
+        onStepLoaded={(newStep) => {
+          setSteps([...steps, newStep]);
+          if (onStepsChange) {
+            onStepsChange();
+          }
+        }}
+      />
     </div>
   );
 };

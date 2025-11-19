@@ -2,7 +2,7 @@
 Routes for capture service management (start/stop/status).
 """
 
-from fastapi import APIRouter, HTTPException, Body
+from fastapi import APIRouter, HTTPException, Body, UploadFile, File
 import sys
 import subprocess
 import psutil
@@ -10,6 +10,8 @@ import requests
 from pathlib import Path
 from typing import Dict, Any
 from pydantic import BaseModel
+import shutil
+from datetime import datetime
 
 # Add project root to path to import shared modules
 project_root = Path(__file__).parent.parent.parent.parent
@@ -214,9 +216,24 @@ async def get_file(path: str, _t: str = None):
                     detail=f"File is not in capture directory. File: {file_path}, Capture dir: {capture_dir}"
                 )
         
+        # Determine media type
+        suffix = file_path.suffix.lower()
+        if suffix == '.png':
+            media_type = 'image/png'
+        elif suffix in ['.jpg', '.jpeg']:
+            media_type = 'image/jpeg'
+        elif suffix == '.gif':
+            media_type = 'image/gif'
+        elif suffix == '.bmp':
+            media_type = 'image/bmp'
+        elif suffix == '.txt':
+            media_type = 'text/plain; charset=utf-8'
+        else:
+            media_type = 'application/octet-stream'
+        
         return FileResponse(
             str(file_path),
-            media_type='image/png' if file_path.suffix.lower() == '.png' else 'image/jpeg'
+            media_type=media_type
         )
     except HTTPException:
         raise
@@ -224,6 +241,58 @@ async def get_file(path: str, _t: str = None):
         raise HTTPException(
             status_code=500,
             detail=f"Error getting file: {str(e)}"
+        )
+
+
+@router.post("/upload-file")
+async def upload_file(file: UploadFile = File(...)) -> Dict[str, Any]:
+    """
+    Upload a file to the capture directory.
+    
+    This allows users to select files from their computer and copy them to Capture_TC/.
+    
+    Returns:
+        - file_path: str - Path to the uploaded file in Capture_TC/
+    """
+    try:
+        # Get capture directory from config
+        config_path = project_root / "screenshot-capture-service" / "config.py"
+        if not config_path.exists():
+            raise HTTPException(
+                status_code=500,
+                detail="Config file not found"
+            )
+        
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("config", config_path)
+        config = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(config)
+        capture_dir = config.SCREENSHOTS_DIR.expanduser().resolve()
+        
+        # Ensure directory exists
+        capture_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Generate filename (preserve original name but add timestamp if needed)
+        original_filename = file.filename or "uploaded_file"
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        file_extension = Path(original_filename).suffix
+        base_name = Path(original_filename).stem
+        new_filename = f"{base_name}_{timestamp}{file_extension}"
+        file_path = capture_dir / new_filename
+        
+        # Save the file
+        with open(file_path, "wb") as f:
+            content = await file.read()
+            f.write(content)
+        
+        return {
+            "file_path": str(file_path),
+            "filename": new_filename
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to upload file: {str(e)}"
         )
 
 
@@ -258,19 +327,22 @@ async def list_capture_files() -> Dict[str, Any]:
                 "directory": str(capture_dir)
             }
         
-        # List all image files
+        # List all image and text files
         image_extensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp']
+        text_extensions = ['.txt']
         files = []
         
         for file_path in capture_dir.iterdir():
-            if file_path.is_file() and file_path.suffix.lower() in image_extensions:
-                stat = file_path.stat()
-                files.append({
-                    "name": file_path.name,
-                    "path": str(file_path),
-                    "size": stat.st_size,
-                    "modified": stat.st_mtime
-                })
+            if file_path.is_file():
+                suffix = file_path.suffix.lower()
+                if suffix in image_extensions or suffix in text_extensions:
+                    stat = file_path.stat()
+                    files.append({
+                        "name": file_path.name,
+                        "path": str(file_path),
+                        "size": stat.st_size,
+                        "modified": stat.st_mtime
+                    })
         
         # Sort by modified time (newest first)
         files.sort(key=lambda x: x['modified'], reverse=True)

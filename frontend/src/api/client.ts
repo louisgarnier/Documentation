@@ -156,6 +156,20 @@ export const stepsAPI = {
       body: JSON.stringify(data),
     });
   },
+
+  /**
+   * Load a step from Capture_TC/ directory
+   */
+  load: async (testCaseId: number, data: {
+    description: string;
+    image_paths: string[];
+    description_file_path?: string;
+  }): Promise<TestStep> => {
+    return fetchAPI<TestStep>(`/api/test-cases/${testCaseId}/steps/load`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
 };
 
 /**
@@ -401,6 +415,22 @@ export const captureServiceAPI = {
       throw new Error(errorMessage);
     }
     return await response.blob();
+  },
+
+  /**
+   * Open folder in Finder (macOS)
+   */
+  openFolder: async (path: string): Promise<{
+    success: boolean;
+    message: string;
+  }> => {
+    return fetchAPI<{
+      success: boolean;
+      message: string;
+    }>('/api/capture-service/open-folder', {
+      method: 'POST',
+      body: JSON.stringify({ path }),
+    });
   },
 
   /**

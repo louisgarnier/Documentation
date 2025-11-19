@@ -91,3 +91,11 @@ class ExportRequest(BaseModel):
     """Model for export request."""
     test_case_ids: List[int]
 
+
+# Load Step Models
+class LoadStepRequest(BaseModel):
+    """Model for loading a step from Capture_TC/ directory."""
+    description: str
+    image_paths: List[str]
+    description_file_path: Optional[str] = None
+
