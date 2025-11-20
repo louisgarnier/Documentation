@@ -12,6 +12,7 @@ A modern web application for creating and managing SimCorp Dimension test case d
 - **Screenshot Capture Mode**: Integrated macOS screenshot capture with automatic naming and description
 - **Load Step Feature**: Quickly load steps from pre-captured screenshots in Capture_TC/ directory
 - **Bulk Operations**: Select and export or delete multiple test cases at once
+- **Delete Test Cases**: Select and delete multiple test cases with confirmation
 
 ## 🏗️ Architecture
 
@@ -260,7 +261,7 @@ For issues, feature requests, or contributions, please use the GitHub issue trac
 - ✅ Screenshot Capture Service
 - ✅ Excel Export
 - ✅ Load Step Feature
-- ✅ Bulk Operations
+- ✅ Bulk Operations (Export & Delete)
 
 ## 🔗 Repository
 
