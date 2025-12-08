@@ -90,6 +90,9 @@ The backend runs on **port 8000** by default. To change:
 ```bash
 # In backend directory
 python3 -m uvicorn api.main:app --reload --port 8001
+
+python3 -m uvicorn api.main:app --reload --port 8000
+
 ```
 
 Update frontend API URL in `frontend/src/api/client.ts`:
