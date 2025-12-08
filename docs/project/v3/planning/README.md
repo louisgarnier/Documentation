@@ -4,5 +4,5 @@ Planning documents, roadmaps, and design decisions for V3.
 
 ## Documents
 
-_Add your planning documents here as you create them._
+- [Functionality 1: Enhanced Screenshot Capture Process](./FUNCTIONALITY_01.md)
 

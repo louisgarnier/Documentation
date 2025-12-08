@@ -240,29 +240,32 @@ class ScreenshotHandler(FileSystemEventHandler):
                 return
             
             # Parser le JSON retourné
+            if not result.stdout:
+                self.logger.error("Dialog returned empty output")
+                return
+                
+            stdout_text = result.stdout.strip()
+            if not stdout_text:
+                self.logger.error("Dialog returned empty output after stripping")
+                return
+                
             try:
-                info = json.loads(result.stdout.strip())
+                info = json.loads(stdout_text)
             except json.JSONDecodeError as e:
                 self.logger.error(f"Failed to parse dialog response: {str(e)}")
+                self.logger.error(f"Dialog stdout was: {result.stdout}")
                 return
             
-            screenshot_name = info.get("screenshot_name", "").strip()
-            test_case = info.get("test_case", "").strip()
-            step_number = info.get("step_number", "").strip()
-            long_description = info.get("long_description", "").strip()
+            # Safely extract values, handling None and empty strings
+            screenshot_name = str(info.get("screenshot_name") or "").strip()
+            test_case = str(info.get("test_case") or "").strip()
+            step_number = info.get("step_number")  # Will be None, step numbers are auto-generated
+            long_description = str(info.get("long_description") or "").strip()
             
-            # Générer le nom de fichier avec Test Case et Step # en priorité
-            # Format: TC05_step1 ou TC05_step1_customname
-            if test_case and step_number:
-                # Base: Test Case + Step #
-                base_name = f"{test_case}_step{step_number}"
-                # Ajouter screenshot_name si fourni (pour personnalisation)
-                if screenshot_name:
-                    filename = f"{base_name}_{screenshot_name}"
-                else:
-                    filename = base_name
-            elif test_case:
-                # Si seulement Test Case
+            # Générer le nom de fichier (step number is auto-generated, not included in filename)
+            # Format: TC05_customname or TC05
+            if test_case and test_case != "Backend not available":
+                # Use Test Case as base
                 if screenshot_name:
                     filename = f"{test_case}_{screenshot_name}"
                 else:
@@ -272,6 +275,10 @@ class ScreenshotHandler(FileSystemEventHandler):
                 filename = screenshot_name
             else:
                 # Fallback: utiliser le nom original sans extension
+                filename = screenshot_path.stem
+            
+            # Ensure filename is never empty
+            if not filename or filename.strip() == "":
                 filename = screenshot_path.stem
             
             # Logger les données saisies
@@ -342,14 +349,12 @@ class ScreenshotHandler(FileSystemEventHandler):
             shutil.move(str(screenshot_path), str(dest_image))
             self.logger.info(f"Step 2.7: Image moved successfully to {dest_image}")
             
-            # Créer le fichier de description avec toutes les informations
+            # Créer le fichier de description avec seulement le texte de description
             self.logger.info(f"Step 2.8: Creating description file: {dest_description}")
             with open(dest_description, 'w', encoding='utf-8') as f:
-                f.write(f"Test Case: {test_case}\n")
-                f.write(f"Step #: {step_number}\n")
-                f.write(f"\nDescription:\n{long_description}\n")
+                f.write(long_description)
             
-            total_chars = len(test_case) + len(step_number) + len(long_description)
+            total_chars = len(long_description)
             self.logger.info(f"Step 2.9: Description file created with {total_chars} characters")
             
             self.logger.info(

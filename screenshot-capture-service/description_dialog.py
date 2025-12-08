@@ -7,6 +7,22 @@ import sys
 import json
 import tkinter as tk
 from tkinter import scrolledtext, messagebox, ttk
+import requests
+
+def fetch_test_cases(backend_url="http://localhost:8000"):
+    """Fetch test cases from the backend API"""
+    try:
+        response = requests.get(f"{backend_url}/api/test-cases", timeout=2)
+        if response.status_code == 200:
+            test_cases = response.json()
+            # Return list of test case numbers for the dropdown
+            return [tc.get("test_number", "") for tc in test_cases if tc.get("test_number")]
+        else:
+            return []
+    except (requests.exceptions.RequestException, requests.exceptions.Timeout):
+        # Backend not available or connection error
+        return []
+
 
 def get_screenshot_info(screenshot_filename):
     """Affiche une fenêtre avec tous les champs pour saisir les infos de la capture"""
@@ -31,7 +47,10 @@ def get_screenshot_info(screenshot_filename):
     title_label = tk.Label(main_frame, text=f"Screenshot: {screenshot_filename}", font=("Arial", 11, "bold"))
     title_label.pack(pady=(0, 15))
     
-    # Ligne 1: Screenshot Name, Test Case, Step #
+    # Fetch test cases from backend
+    test_cases_list = fetch_test_cases()
+    
+    # Ligne 1: Screenshot Name, Test Case
     row1_frame = tk.Frame(main_frame)
     row1_frame.pack(fill=tk.X, pady=(0, 10))
     
@@ -41,17 +60,17 @@ def get_screenshot_info(screenshot_filename):
     name_entry = tk.Entry(row1_frame, width=20, font=("Arial", 10))
     name_entry.pack(side=tk.LEFT, padx=(0, 15))
     
-    # Test Case
+    # Test Case (Dropdown)
     testcase_label = tk.Label(row1_frame, text="Test Case:", font=("Arial", 10))
     testcase_label.pack(side=tk.LEFT, padx=(0, 5))
-    testcase_entry = tk.Entry(row1_frame, width=15, font=("Arial", 10))
-    testcase_entry.pack(side=tk.LEFT, padx=(0, 15))
-    
-    # Step #
-    step_label = tk.Label(row1_frame, text="Step #:", font=("Arial", 10))
-    step_label.pack(side=tk.LEFT, padx=(0, 5))
-    step_entry = tk.Entry(row1_frame, width=10, font=("Arial", 10))
-    step_entry.pack(side=tk.LEFT)
+    testcase_combo = ttk.Combobox(row1_frame, width=15, font=("Arial", 10), values=test_cases_list)
+    testcase_combo.pack(side=tk.LEFT, padx=(0, 15))
+    if test_cases_list:
+        testcase_combo.set(test_cases_list[0])  # Set first test case as default
+    else:
+        # Show warning if backend is not available
+        testcase_combo.set("Backend not available")
+        testcase_combo.config(state="disabled")
     
     # Ligne 2: Long Description (textarea)
     long_desc_label = tk.Label(main_frame, text="Long Description:", font=("Arial", 10))
@@ -63,10 +82,24 @@ def get_screenshot_info(screenshot_filename):
     name_entry.focus()
     
     def on_ok():
-        result["screenshot_name"] = name_entry.get().strip()
-        result["test_case"] = testcase_entry.get().strip()
-        result["step_number"] = step_entry.get().strip()
-        result["long_description"] = long_desc_text.get("1.0", tk.END).strip()
+        result["screenshot_name"] = name_entry.get().strip() or ""
+        # Get test case from combobox (handle disabled state)
+        if testcase_combo.cget("state") == "disabled":
+            result["test_case"] = ""
+        else:
+            test_case_value = testcase_combo.get()
+            if test_case_value:
+                test_case_value = test_case_value.strip()
+            else:
+                test_case_value = ""
+            # Don't use "Backend not available" as test case value
+            if test_case_value == "Backend not available":
+                result["test_case"] = ""
+            else:
+                result["test_case"] = test_case_value
+        # Step number is no longer collected - will be auto-generated
+        result["step_number"] = None
+        result["long_description"] = long_desc_text.get("1.0", tk.END).strip() or ""
         root.destroy()
     
     def on_cancel():
