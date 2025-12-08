@@ -347,9 +347,9 @@ def create_test_case_sheet(sheet, test_case):
         
         for step in steps:
             # Step description row: entire row (columns B to E or more) with same color and top/bottom borders
-            # Format: "1  Description"
+            # Format: "1/ Description"
             step_cell = sheet.cell(row=current_row, column=2)
-            step_cell.value = f"{step['step_number']}  {step['description']}"
+            step_cell.value = f"{step['step_number']}/ {step['description']}"
             step_cell.font = Font(bold=True, size=11)
             step_cell.fill = header_fill
             step_cell.border = step_header_border
