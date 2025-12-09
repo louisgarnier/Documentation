@@ -89,6 +89,80 @@ def init_database():
         print(f"Migration note: {e}")
         pass
     
+    # Migration: Change UNIQUE constraint from test_number to (project_id, test_number)
+    # This allows the same test number in different projects
+    try:
+        # Check if unique index on (project_id, test_number) already exists
+        cursor.execute("""
+            SELECT name FROM sqlite_master 
+            WHERE type='index' AND name='idx_test_cases_project_test_number'
+        """)
+        index_exists = cursor.fetchone()
+        
+        if not index_exists:
+            # Check the table schema to see if old UNIQUE constraint exists
+            cursor.execute("""
+                SELECT sql FROM sqlite_master 
+                WHERE type='table' AND name='test_cases'
+            """)
+            schema_result = cursor.fetchone()
+            needs_migration = False
+            
+            if schema_result and schema_result[0]:
+                schema_sql = schema_result[0].upper()
+                # Check if test_number has UNIQUE constraint in the table definition
+                # Look for pattern like "test_number TEXT NOT NULL UNIQUE" or "UNIQUE(test_number)"
+                if 'TEST_NUMBER' in schema_sql and 'UNIQUE' in schema_sql:
+                    # Check if it's the old constraint (UNIQUE on test_number alone)
+                    # vs new constraint (UNIQUE(project_id, test_number))
+                    if 'UNIQUE(PROJECT_ID, TEST_NUMBER)' not in schema_sql:
+                        needs_migration = True
+            
+            if needs_migration:
+                print("Migrating test_cases table: changing UNIQUE constraint to (project_id, test_number)")
+                
+                # Create new table with correct constraint
+                cursor.execute("""
+                    CREATE TABLE test_cases_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        test_number TEXT NOT NULL,
+                        description TEXT NOT NULL,
+                        project_id INTEGER,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL,
+                        UNIQUE(project_id, test_number)
+                    )
+                """)
+                
+                # Copy data from old table
+                cursor.execute("""
+                    INSERT INTO test_cases_new (id, test_number, description, project_id, created_at)
+                    SELECT id, test_number, description, project_id, created_at
+                    FROM test_cases
+                """)
+                
+                # Drop old table
+                cursor.execute("DROP TABLE test_cases")
+                
+                # Rename new table
+                cursor.execute("ALTER TABLE test_cases_new RENAME TO test_cases")
+                
+                # Recreate indexes
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_test_cases_project_id ON test_cases(project_id)")
+                
+                print("Migration completed successfully")
+            else:
+                # No migration needed, just create the unique index
+                cursor.execute("""
+                    CREATE UNIQUE INDEX idx_test_cases_project_test_number 
+                    ON test_cases(project_id, test_number)
+                """)
+                print("Created unique index on (project_id, test_number)")
+    except sqlite3.OperationalError as e:
+        # If migration fails, log but continue
+        print(f"Migration note (constraint change): {e}")
+        pass
+    
     # Create test_steps table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS test_steps (
@@ -140,14 +214,22 @@ def create_test_case(test_number: str, description: str, project_id: Optional[in
     """Create a new test case and return its ID."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("""
-        INSERT INTO test_cases (test_number, description, project_id)
-        VALUES (?, ?, ?)
-    """, (test_number, description, project_id))
-    test_case_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
-    return test_case_id
+    try:
+        cursor.execute("""
+            INSERT INTO test_cases (test_number, description, project_id)
+            VALUES (?, ?, ?)
+        """, (test_number, description, project_id))
+        test_case_id = cursor.lastrowid
+        conn.commit()
+        return test_case_id
+    except sqlite3.IntegrityError as e:
+        conn.rollback()
+        raise ValueError(f"Test case with number '{test_number}' already exists in this project") from e
+    except Exception as e:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def get_all_test_cases(project_id: Optional[int] = None) -> List[Dict]:
@@ -181,24 +263,46 @@ def update_test_case(test_case_id: int, test_number: str, description: str, proj
     """Update an existing test case."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    if project_id is not None:
+    try:
+        # Get current project_id if not provided
+        if project_id is None:
+            cursor.execute("SELECT project_id FROM test_cases WHERE id = ?", (test_case_id,))
+            result = cursor.fetchone()
+            if result:
+                project_id = result[0]
+        
+        # Check if test_number already exists in the same project (excluding current test case)
         cursor.execute("""
-            UPDATE test_cases
-            SET test_number = ?, description = ?, project_id = ?
-            WHERE id = ?
-        """, (test_number, description, project_id, test_case_id))
-    else:
-        cursor.execute("""
-            UPDATE test_cases
-            SET test_number = ?, description = ?
-            WHERE id = ?
-        """, (test_number, description, test_case_id))
-    
-    success = cursor.rowcount > 0
-    conn.commit()
-    conn.close()
-    return success
+            SELECT id FROM test_cases 
+            WHERE test_number = ? AND project_id = ? AND id != ?
+        """, (test_number, project_id, test_case_id))
+        if cursor.fetchone():
+            conn.rollback()
+            raise ValueError(f"Test case with number '{test_number}' already exists in this project")
+        
+        if project_id is not None:
+            cursor.execute("""
+                UPDATE test_cases
+                SET test_number = ?, description = ?, project_id = ?
+                WHERE id = ?
+            """, (test_number, description, project_id, test_case_id))
+        else:
+            cursor.execute("""
+                UPDATE test_cases
+                SET test_number = ?, description = ?
+                WHERE id = ?
+            """, (test_number, description, test_case_id))
+        success = cursor.rowcount > 0
+        conn.commit()
+        return success
+    except sqlite3.IntegrityError as e:
+        conn.rollback()
+        raise ValueError(f"Test case with number '{test_number}' already exists in this project") from e
+    except Exception as e:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def move_test_case_to_project(test_case_id: int, project_id: Optional[int]) -> bool:
@@ -206,6 +310,24 @@ def move_test_case_to_project(test_case_id: int, project_id: Optional[int]) -> b
     conn = get_db_connection()
     try:
         cursor = conn.cursor()
+        
+        # Get the test case's current test_number
+        cursor.execute("SELECT test_number FROM test_cases WHERE id = ?", (test_case_id,))
+        result = cursor.fetchone()
+        if not result:
+            return False
+        
+        test_number = result[0]
+        
+        # Check if a test case with the same test_number already exists in the target project
+        cursor.execute("""
+            SELECT id FROM test_cases 
+            WHERE test_number = ? AND project_id = ? AND id != ?
+        """, (test_number, project_id, test_case_id))
+        if cursor.fetchone():
+            conn.rollback()
+            raise ValueError(f"Test case with number '{test_number}' already exists in the target project")
+        
         cursor.execute("""
             UPDATE test_cases
             SET project_id = ?
@@ -214,9 +336,12 @@ def move_test_case_to_project(test_case_id: int, project_id: Optional[int]) -> b
         success = cursor.rowcount > 0
         conn.commit()
         return success
+    except sqlite3.IntegrityError as e:
+        conn.rollback()
+        raise ValueError(f"Test case with number '{test_number}' already exists in the target project") from e
     except Exception as e:
         conn.rollback()
-        raise e
+        raise
     finally:
         conn.close()
 
@@ -241,16 +366,24 @@ def duplicate_test_case(test_case_id: int, new_test_number: str, target_project_
         # Use target_project_id if provided, otherwise use original's project_id
         project_id = target_project_id if target_project_id is not None else original.get('project_id')
         
-        # Check if new_test_number already exists, if so, make it unique
-        cursor.execute("SELECT COUNT(*) as count FROM test_cases WHERE test_number = ?", (new_test_number,))
+        # Check if new_test_number already exists in the target project, if so, make it unique
+        cursor.execute("""
+            SELECT COUNT(*) as count FROM test_cases 
+            WHERE test_number = ? AND project_id = ?
+        """, (new_test_number, project_id))
         count = cursor.fetchone()['count']
         if count > 0:
-            # Generate unique test number by appending a number
+            # Generate unique test number by appending a timestamp and counter
             base_number = new_test_number
             counter = 1
+            from datetime import datetime
+            timestamp = int(datetime.now().timestamp())
             while True:
-                unique_number = f"{base_number}_{counter}"
-                cursor.execute("SELECT COUNT(*) as count FROM test_cases WHERE test_number = ?", (unique_number,))
+                unique_number = f"{base_number} COPY {timestamp}_{counter}"
+                cursor.execute("""
+                    SELECT COUNT(*) as count FROM test_cases 
+                    WHERE test_number = ? AND project_id = ?
+                """, (unique_number, project_id))
                 if cursor.fetchone()['count'] == 0:
                     new_test_number = unique_number
                     break

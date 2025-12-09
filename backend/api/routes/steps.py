@@ -242,6 +242,9 @@ async def load_step(test_case_id: int, request: LoadStepRequest):
         
         # Upload and associate screenshots
         uploaded_screenshots = []
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        counter = 1
+        
         for image_path_str in request.image_paths:
             try:
                 # Resolve the image path
@@ -266,11 +269,16 @@ async def load_step(test_case_id: int, request: LoadStepRequest):
                 upload_dir = project_root / f"uploads/test_{test_case_id}/step_{step_id}"
                 upload_dir.mkdir(parents=True, exist_ok=True)
                 
-                # Generate unique filename
+                # Generate unique filename with counter to avoid collisions
                 file_extension = image_path.suffix or ".png"
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                filename = f"screenshot_{timestamp}{file_extension}"
+                filename = f"screenshot_{timestamp}_{counter:03d}{file_extension}"
                 dest_path = upload_dir / filename
+                
+                # Ensure filename is unique (in case of rare collisions)
+                while dest_path.exists():
+                    counter += 1
+                    filename = f"screenshot_{timestamp}_{counter:03d}{file_extension}"
+                    dest_path = upload_dir / filename
                 
                 # Copy the file
                 shutil.copy2(str(image_path), str(dest_path))
@@ -279,12 +287,16 @@ async def load_step(test_case_id: int, request: LoadStepRequest):
                 screenshot_id = add_screenshot_to_step_db(step_id, str(dest_path))
                 if screenshot_id:
                     uploaded_screenshots.append(screenshot_id)
+                
+                # Increment counter for next screenshot
+                counter += 1
                     
             except HTTPException:
                 raise
             except Exception as e:
                 # Log error but continue with other images
                 print(f"Warning: Failed to upload image {image_path_str}: {str(e)}")
+                counter += 1  # Still increment counter even on error
         
         if not uploaded_screenshots:
             raise HTTPException(status_code=500, detail="Failed to upload any screenshots")
