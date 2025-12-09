@@ -4,15 +4,16 @@ A modern web application for creating and managing SimCorp Dimension test case d
 
 ## 🎯 Features
 
+- **Project Organization**: Organize test cases into projects for better structure and management
 - **Test Case Management**: Create, edit, and organize test cases with unique numbers and descriptions
 - **Step Management**: Add multiple steps to each test case with detailed descriptions
 - **Screenshot Integration**: Attach screenshots to steps with drag-and-drop support
 - **Metadata Support**: Add modules used, calculation logic, and configuration elements
-- **Excel Export**: Export selected test cases to professional Excel workbooks (summary + individual test sheets)
+- **Excel Export**: Export test cases by project or individually to professional Excel workbooks (summary + individual test sheets with project grouping)
 - **Screenshot Capture Mode**: Integrated macOS screenshot capture with automatic naming and description
 - **Load Step Feature**: Quickly load steps from pre-captured screenshots in Capture_TC/ directory
 - **Bulk Operations**: Select and export or delete multiple test cases at once
-- **Delete Test Cases**: Select and delete multiple test cases with confirmation
+- **Test Case Operations**: Duplicate and move test cases between projects
 
 ## 🏗️ Architecture
 
@@ -130,25 +131,32 @@ Documentation/
    cd frontend && npm run dev
    ```
 
-2. **Create a Test Case**
+2. **Create a Project** (Optional but recommended)
    - Open http://localhost:3000
-   - Click "Create New Test Case"
-   - Enter test number and description
+   - Click "Create New Project"
+   - Enter project name and description
+   - Click into the project to manage its test cases
 
-3. **Add Steps**
+3. **Create a Test Case**
+   - From the project page, click "Create Test Case"
+   - Enter test number and description
+   - Test case is automatically assigned to the current project
+
+4. **Add Steps**
    - Open a test case
    - Click "Add New Step" or use "Load Step" to load from Capture_TC/
    - Fill in step details
 
-4. **Add Screenshots**
+5. **Add Screenshots**
    - Click "Add Screenshot" on any step
    - Upload from computer or select from Capture_TC/
    - Drag and drop images directly
 
-5. **Export to Excel**
-   - Select test cases using checkboxes
-   - Click "Export to Excel"
-   - Download the generated workbook
+6. **Export to Excel**
+   - **Project Export**: From a project page, click "Export Project" to export all test cases in that project
+   - **Multi-Project Export**: From the home page, select multiple projects and click "Export"
+   - **Individual Export**: Select test cases using checkboxes and click "Export to Excel"
+   - Download the generated workbook with project grouping
 
 ### Screenshot Capture Mode
 
@@ -254,14 +262,17 @@ For issues, feature requests, or contributions, please use the GitHub issue trac
 
 ## 📊 Status
 
-✅ **Production Ready**
+✅ **Production Ready - V3 Complete**
 
 - ✅ Backend API (FastAPI)
 - ✅ Frontend (Next.js)
 - ✅ Screenshot Capture Service
+- ✅ **Projects Organization** (V3)
+- ✅ **Enhanced Excel Export** with project grouping (V3)
 - ✅ Excel Export
 - ✅ Load Step Feature
 - ✅ Bulk Operations (Export & Delete)
+- ✅ Test Case Duplication & Movement (V3)
 
 ## 🔗 Repository
 
