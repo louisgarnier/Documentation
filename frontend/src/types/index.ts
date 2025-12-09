@@ -3,10 +3,20 @@
  * These types match the API response models
  */
 
+export interface Project {
+  id: number;
+  name: string;
+  description?: string | null;
+  created_at: string;
+  updated_at: string;
+  test_case_count?: number;
+}
+
 export interface TestCase {
   id: number;
   test_number: string;
   description: string;
+  project_id?: number | null;
   created_at: string;
 }
 
@@ -38,14 +48,35 @@ export interface TestStepWithScreenshots extends TestStep {
 }
 
 // Request types
+export interface CreateProjectRequest {
+  name: string;
+  description?: string | null;
+}
+
+export interface UpdateProjectRequest {
+  name?: string;
+  description?: string | null;
+}
+
 export interface CreateTestCaseRequest {
   test_number: string;
   description: string;
+  project_id?: number | null;
 }
 
 export interface UpdateTestCaseRequest {
   test_number?: string;
   description?: string;
+  project_id?: number | null;
+}
+
+export interface MoveTestCaseRequest {
+  target_project_id?: number | null;
+}
+
+export interface DuplicateTestCaseRequest {
+  new_test_number: string;
+  target_project_id?: number | null;
 }
 
 export interface CreateStepRequest {

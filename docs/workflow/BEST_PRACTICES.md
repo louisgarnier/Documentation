@@ -11,7 +11,7 @@
 
 ### once ne code is developed. 
 - ✅ **ALWAYS confirm with the user before:**
-  - always propose a test
+  - always propose a test in .py file that can be run either by you and display a log in the terminal or by me 
 
 
 ### Before Pushing to GitHub

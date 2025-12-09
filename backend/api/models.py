@@ -16,22 +16,35 @@ class TestCaseBase(BaseModel):
 
 class TestCaseCreate(TestCaseBase):
     """Model for creating a test case."""
-    pass
+    project_id: Optional[int] = None
 
 
 class TestCaseUpdate(BaseModel):
     """Model for updating a test case."""
     test_number: Optional[str] = None
     description: Optional[str] = None
+    project_id: Optional[int] = None
 
 
 class TestCaseResponse(TestCaseBase):
     """Model for test case response."""
     id: int
+    project_id: Optional[int] = None
     created_at: str
 
     class Config:
         from_attributes = True
+
+
+class TestCaseDuplicateRequest(BaseModel):
+    """Model for duplicating a test case."""
+    new_test_number: str
+    target_project_id: Optional[int] = None
+
+
+class TestCaseMoveRequest(BaseModel):
+    """Model for moving a test case to another project."""
+    target_project_id: Optional[int] = None
 
 
 # Test Step Models
@@ -98,4 +111,33 @@ class LoadStepRequest(BaseModel):
     description: str
     image_paths: List[str]
     description_file_path: Optional[str] = None
+
+
+# Project Models
+class ProjectBase(BaseModel):
+    """Base model for project."""
+    name: str
+    description: Optional[str] = None
+
+
+class ProjectCreate(ProjectBase):
+    """Model for creating a project."""
+    pass
+
+
+class ProjectUpdate(BaseModel):
+    """Model for updating a project."""
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+
+class ProjectResponse(ProjectBase):
+    """Model for project response."""
+    id: int
+    test_case_count: Optional[int] = 0
+    created_at: str
+    updated_at: str
+
+    class Config:
+        from_attributes = True
 

@@ -4,7 +4,7 @@ FastAPI main application for Test Case Documentation Tool API.
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api.routes import test_cases, steps, screenshots, export, capture_service
+from api.routes import test_cases, steps, screenshots, export, capture_service, projects
 
 # Create FastAPI app
 app = FastAPI(
@@ -23,6 +23,7 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(projects.router)
 app.include_router(test_cases.router)
 app.include_router(steps.router)
 app.include_router(screenshots.router)

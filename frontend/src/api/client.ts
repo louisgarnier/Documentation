@@ -6,11 +6,16 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 import type {
+  Project,
   TestCase,
   TestStep,
   Screenshot,
+  CreateProjectRequest,
+  UpdateProjectRequest,
   CreateTestCaseRequest,
   UpdateTestCaseRequest,
+  MoveTestCaseRequest,
+  DuplicateTestCaseRequest,
   CreateStepRequest,
   UpdateStepRequest,
   ReorderStepRequest,
@@ -53,14 +58,72 @@ async function fetchAPI<T>(
 }
 
 /**
+ * Projects API
+ */
+export const projectsAPI = {
+  /**
+   * Get all projects
+   */
+  getAll: async (): Promise<Project[]> => {
+    return fetchAPI<Project[]>('/api/projects');
+  },
+
+  /**
+   * Get a project by ID
+   */
+  getById: async (id: number): Promise<Project> => {
+    return fetchAPI<Project>(`/api/projects/${id}`);
+  },
+
+  /**
+   * Get test cases for a project
+   */
+  getTestCases: async (id: number): Promise<TestCase[]> => {
+    return fetchAPI<TestCase[]>(`/api/projects/${id}/test-cases`);
+  },
+
+  /**
+   * Create a new project
+   */
+  create: async (data: CreateProjectRequest): Promise<Project> => {
+    return fetchAPI<Project>('/api/projects', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Update a project
+   */
+  update: async (id: number, data: UpdateProjectRequest): Promise<Project> => {
+    return fetchAPI<Project>(`/api/projects/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Delete a project
+   */
+  delete: async (id: number): Promise<void> => {
+    return fetchAPI<void>(`/api/projects/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+/**
  * Test Cases API
  */
 export const testCasesAPI = {
   /**
-   * Get all test cases
+   * Get all test cases, optionally filtered by project_id
    */
-  getAll: async (): Promise<TestCase[]> => {
-    return fetchAPI<TestCase[]>('/api/test-cases');
+  getAll: async (projectId?: number): Promise<TestCase[]> => {
+    const url = projectId 
+      ? `/api/test-cases?project_id=${projectId}`
+      : '/api/test-cases';
+    return fetchAPI<TestCase[]>(url);
   },
 
   /**
@@ -86,6 +149,26 @@ export const testCasesAPI = {
   update: async (id: number, data: UpdateTestCaseRequest): Promise<TestCase> => {
     return fetchAPI<TestCase>(`/api/test-cases/${id}`, {
       method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Move a test case to another project
+   */
+  move: async (id: number, data: MoveTestCaseRequest): Promise<TestCase> => {
+    return fetchAPI<TestCase>(`/api/test-cases/${id}/move`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Duplicate a test case
+   */
+  duplicate: async (id: number, data: DuplicateTestCaseRequest): Promise<TestCase> => {
+    return fetchAPI<TestCase>(`/api/test-cases/${id}/duplicate`, {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   },

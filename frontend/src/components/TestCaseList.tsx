@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { TestCase } from '@/src/types';
+import { TestCase, Project } from '@/src/types';
 import { TestCaseItem } from './TestCaseItem';
 
 interface TestCaseListProps {
@@ -9,13 +9,23 @@ interface TestCaseListProps {
   selectedTestCaseIds: Set<number>;
   onSelectTestCase: (id: number) => void;
   onViewDetail: (testCase: TestCase) => void;
+  onDuplicate?: (testCaseId: number, targetProjectId?: number) => void;
+  onMove?: (testCaseId: number, targetProjectId: number | null) => void;
+  currentProjectId?: number;
+  allProjects?: Project[];
+  onRefreshProjects?: () => void;
 }
 
 export const TestCaseList: React.FC<TestCaseListProps> = ({ 
   testCases, 
   selectedTestCaseIds, 
   onSelectTestCase, 
-  onViewDetail 
+  onViewDetail,
+  onDuplicate,
+  onMove,
+  currentProjectId,
+  allProjects = [],
+  onRefreshProjects
 }) => {
   if (testCases.length === 0) {
     return (
@@ -36,6 +46,11 @@ export const TestCaseList: React.FC<TestCaseListProps> = ({
           isSelected={selectedTestCaseIds.has(testCase.id)}
           onSelect={onSelectTestCase}
           onViewDetail={onViewDetail}
+          onDuplicate={onDuplicate}
+          onMove={onMove}
+          currentProjectId={currentProjectId}
+          allProjects={allProjects}
+          onRefreshProjects={onRefreshProjects}
         />
       ))}
     </div>

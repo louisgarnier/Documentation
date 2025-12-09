@@ -1,13 +1,15 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Header } from '../../../src/components/Header';
 import { TestCaseForm } from '../../../src/components/TestCaseForm';
 import { testCasesAPI } from '../../../src/api/client';
 
 export default function CreateTestCasePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const projectId = searchParams.get('project_id');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -15,9 +17,18 @@ export default function CreateTestCasePage() {
     try {
       setLoading(true);
       setError(null);
-      const newTestCase = await testCasesAPI.create(data);
-      // Redirect to the detail page
-      router.push(`/test-case/${newTestCase.id}`);
+      const projectIdNum = projectId ? parseInt(projectId) : undefined;
+      const newTestCase = await testCasesAPI.create({
+        ...data,
+        project_id: projectIdNum || null
+      });
+      
+      // Redirect to project page if project_id was provided, otherwise to test case detail
+      if (projectIdNum) {
+        router.push(`/project/${projectIdNum}`);
+      } else {
+        router.push(`/test-case/${newTestCase.id}`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create test case');
       throw err; // Re-throw to let the form handle it
@@ -27,7 +38,11 @@ export default function CreateTestCasePage() {
   };
 
   const handleCancel = () => {
-    router.push('/');
+    if (projectId) {
+      router.push(`/project/${projectId}`);
+    } else {
+      router.push('/');
+    }
   };
 
   return (
