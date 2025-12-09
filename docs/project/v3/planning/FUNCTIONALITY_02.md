@@ -251,16 +251,22 @@ Add a project layer to organize test cases. The home page will display projects 
 - [x] Added edit/delete UI to project detail page
 - [x] **Tested and verified**: Duplicate and move work without errors
 
-### Step 8: Excel Export Updates ⏳
-- [ ] Project level export works (export all test cases in a project)
-- [ ] Home page level export allows selecting multiple projects
-- [ ] Multi-project export includes all test cases from selected projects
-- [ ] Summary page shows projects one below the other with separators
-- [ ] Separators clearly indicate project boundaries
-- [ ] Each project section shows its test cases correctly
-- [ ] Test case tabs include project identifier/name
-- [ ] Excel export maintains one tab per test case structure
-- [ ] Summary page clearly shows which test case belongs to which project
+### Step 8: Excel Export Updates ✅
+- [x] Updated ExportRequest model to support project_ids
+- [x] Updated export API endpoint to handle project_ids
+- [x] Updated excel_export.py to support project-based exports with grouping
+- [x] Project level export works (export all test cases in a project)
+- [x] Home page level export allows selecting multiple projects
+- [x] Multi-project export includes all test cases from selected projects
+- [x] Summary page shows projects one below the other with separators
+- [x] Separators clearly indicate project boundaries (gray separator rows)
+- [x] Each project section shows its test cases correctly (with project header)
+- [x] Test case tabs include project identifier/name (format: "ProjectName_TC001")
+- [x] Excel export maintains one tab per test case structure
+- [x] Summary page clearly shows which test case belongs to which project
+- [x] Added export button to project detail page
+- [x] Added project selection checkboxes to home page
+- [x] Added export button to home page (appears when projects are selected)
 
 ## Implementation Progress
 
@@ -301,4 +307,4 @@ Add a project layer to organize test cases. The home page will display projects 
 - Multi-project export functionality
 
 ## Status
-🚧 **In Progress** - Step 1 complete ✅, Step 2 complete ✅, Step 3 complete ✅, Step 4 complete ✅, Step 5 complete ✅, Step 6 complete ✅, Step 7 complete ✅, Step 8 next 🚧
+✅ **Complete** - All steps (1-8) implemented and ready for testing! 🎉

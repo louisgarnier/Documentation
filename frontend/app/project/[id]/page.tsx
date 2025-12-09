@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Header } from '@/src/components/Header';
 import { TestCaseList } from '@/src/components/TestCaseList';
 import { ProjectForm } from '@/src/components/ProjectForm';
-import { projectsAPI, testCasesAPI } from '@/src/api/client';
+import { projectsAPI, testCasesAPI, exportAPI } from '@/src/api/client';
 import type { Project, TestCase } from '@/src/types';
 
 export default function ProjectDetailPage() {
@@ -21,6 +21,7 @@ export default function ProjectDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [editingProject, setEditingProject] = useState(false);
   const [allProjects, setAllProjects] = useState<Project[]>([]);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (projectId) {
@@ -171,6 +172,33 @@ export default function ProjectDetailPage() {
     router.push(`/test-case/new?project_id=${projectId}`);
   };
 
+  const handleExportProject = async () => {
+    try {
+      setExporting(true);
+      setError(null);
+      
+      // Export all test cases in this project
+      const blob = await exportAPI.exportToExcel({
+        project_ids: [projectId]
+      });
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${project?.name || 'project'}_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('Error exporting project:', err);
+      setError(err instanceof Error ? err.message : 'Failed to export project');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   if (loading && !project) {
     return (
       <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
@@ -241,6 +269,13 @@ export default function ProjectDetailPage() {
                   className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-semibold transition-colors"
                 >
                   ➕ Create Test Case
+                </button>
+                <button
+                  onClick={handleExportProject}
+                  disabled={exporting || testCases.length === 0}
+                  className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {exporting ? 'Exporting...' : '📥 Export Project'}
                 </button>
               </div>
             </div>

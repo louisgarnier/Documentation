@@ -187,7 +187,13 @@ export const TestCaseDetail: React.FC<TestCaseDetailProps> = ({
   };
 
   const handleGoBack = () => {
-    router.push('/');
+    // Navigate back to the project detail page if test case belongs to a project
+    // Otherwise, navigate to home page
+    if (testCase.project_id) {
+      router.push(`/project/${testCase.project_id}`);
+    } else {
+      router.push('/');
+    }
   };
 
   const handleSave = async () => {

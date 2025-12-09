@@ -12,20 +12,23 @@ from shared.models import (
     get_all_test_cases,
     get_test_case_by_id,
     get_steps_by_test_case,
-    get_screenshots_by_step
+    get_screenshots_by_step,
+    get_project_by_id,
+    get_all_projects
 )
 from datetime import datetime
 import os
 from pathlib import Path
 
 
-def create_excel_export(output_path="test_cases_export.xlsx", selected_test_case_ids=None):
+def create_excel_export(output_path="test_cases_export.xlsx", selected_test_case_ids=None, selected_project_ids=None):
     """
     Create an Excel workbook with test case documentation.
     
     Args:
         output_path: Path where the Excel file should be saved
         selected_test_case_ids: Optional list of test case IDs to export. If None, exports all.
+        selected_project_ids: Optional list of project IDs to export. If provided, exports all test cases from those projects.
         
     Returns:
         str: Path to the created Excel file
@@ -37,23 +40,87 @@ def create_excel_export(output_path="test_cases_export.xlsx", selected_test_case
     if 'Sheet' in wb.sheetnames:
         wb.remove(wb['Sheet'])
     
-    # Get test cases (filtered if IDs provided)
-    if selected_test_case_ids:
+    # Get test cases based on provided filters
+    if selected_project_ids:
+        # Fetch test cases by project IDs
+        test_cases = []
+        projects_dict = {}  # Store project info for grouping
+        for project_id in selected_project_ids:
+            project = get_project_by_id(project_id)
+            if project:
+                projects_dict[project_id] = project
+                project_test_cases = get_all_test_cases(project_id=project_id)
+                # Add project_id to each test case for grouping
+                for tc in project_test_cases:
+                    tc['_project_id'] = project_id
+                    tc['_project_name'] = project['name']
+                test_cases.extend(project_test_cases)
+        
+        # If test_case_ids also provided, filter to intersection
+        if selected_test_case_ids:
+            test_case_id_set = set(selected_test_case_ids)
+            test_cases = [tc for tc in test_cases if tc['id'] in test_case_id_set]
+    elif selected_test_case_ids:
+        # Fetch specific test cases
         all_test_cases = get_all_test_cases()
         test_cases = [tc for tc in all_test_cases if tc['id'] in selected_test_case_ids]
+        # Add project info for grouping
+        projects_dict = {}
+        for tc in test_cases:
+            if tc.get('project_id'):
+                project_id = tc['project_id']
+                if project_id not in projects_dict:
+                    project = get_project_by_id(project_id)
+                    if project:
+                        projects_dict[project_id] = project
+                if project_id in projects_dict:
+                    tc['_project_id'] = project_id
+                    tc['_project_name'] = projects_dict[project_id]['name']
     else:
+        # Export all test cases
         test_cases = get_all_test_cases()
+        # Add project info for grouping
+        projects_dict = {}
+        for tc in test_cases:
+            if tc.get('project_id'):
+                project_id = tc['project_id']
+                if project_id not in projects_dict:
+                    project = get_project_by_id(project_id)
+                    if project:
+                        projects_dict[project_id] = project
+                if project_id in projects_dict:
+                    tc['_project_id'] = project_id
+                    tc['_project_name'] = projects_dict[project_id]['name']
+    
+    # Group test cases by project for summary
+    # Always use projects_dict (populated for all cases)
+    projects_info = projects_dict
     
     # Create Summary sheet
     summary_sheet = wb.create_sheet("Summary", 0)
-    create_summary_sheet(summary_sheet, test_cases)
+    create_summary_sheet(summary_sheet, test_cases, projects_info)
     
     # Create a sheet for each test case
     for test_case in test_cases:
-        sheet_name = f"{test_case['test_number']}"
+        # Include project name in sheet name if available
+        project_name = test_case.get('_project_name', '')
+        if project_name:
+            # Clean project name for Excel sheet name (remove invalid characters)
+            clean_project_name = project_name.replace('/', '_').replace('\\', '_').replace('?', '_').replace('*', '_').replace('[', '_').replace(']', '_').replace(':', '_')
+            sheet_name = f"{clean_project_name}_{test_case['test_number']}"
+        else:
+            sheet_name = f"{test_case['test_number']}"
+        
         # Excel sheet names have a 31 character limit
         if len(sheet_name) > 31:
-            sheet_name = sheet_name[:28] + "..."
+            # Truncate intelligently: keep project prefix if possible
+            if project_name and len(clean_project_name) < 15:
+                # Keep project name and truncate test number
+                max_tc_len = 31 - len(clean_project_name) - 1  # -1 for underscore
+                tc_part = test_case['test_number'][:max_tc_len]
+                sheet_name = f"{clean_project_name}_{tc_part}"
+            else:
+                sheet_name = sheet_name[:28] + "..."
         
         # Check if sheet name already exists (handle duplicates)
         base_name = sheet_name
@@ -70,11 +137,28 @@ def create_excel_export(output_path="test_cases_export.xlsx", selected_test_case
     return output_path
 
 
-def create_summary_sheet(sheet, test_cases=None):
-    """Create the summary sheet with all test cases matching the reference format."""
+def create_summary_sheet(sheet, test_cases=None, projects_info=None):
+    """Create the summary sheet with all test cases matching the reference format, grouped by project."""
     # Get test cases if not provided
     if test_cases is None:
         test_cases = get_all_test_cases()
+    
+    # Group test cases by project
+    if projects_info is None:
+        projects_info = {}
+    
+    # Group test cases by project_id
+    grouped_by_project = {}
+    ungrouped_test_cases = []
+    
+    for tc in test_cases:
+        project_id = tc.get('_project_id') or tc.get('project_id')
+        if project_id and project_id in projects_info:
+            if project_id not in grouped_by_project:
+                grouped_by_project[project_id] = []
+            grouped_by_project[project_id].append(tc)
+        else:
+            ungrouped_test_cases.append(tc)
     
     # White fill for all cells
     white_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
@@ -131,54 +215,152 @@ def create_summary_sheet(sheet, test_cases=None):
         cell.border = thin_border
         cell.fill = header_fill  # Dark blue background instead of white
     
-    # Row 6 onwards: Test case data (with padding from headers)
+    # Row 6 onwards: Test case data (with padding from headers), grouped by project
     last_data_row = 5  # Will be updated as we add rows
+    current_row = 6
     
-    for row_num, test_case in enumerate(test_cases, 6):
-        # Ensure all cells in this row have borders (table structure)
-        # Column C: Test Case ID (with hyperlink to test case sheet) - shifted to column C
-        test_case_id_cell = sheet.cell(row=row_num, column=3)  # Column C instead of B
+    # Separator border (thin border for visual separation, but row is white)
+    separator_border = Border(
+        top=Side(style='thin', color='000000'),
+        bottom=Side(style='thin', color='000000')
+    )
+    
+    # Project header fill (slightly darker gray)
+    project_header_fill = PatternFill(start_color="D0D0D0", end_color="D0D0D0", fill_type="solid")
+    project_header_font = Font(bold=True, size=12, color="000000")
+    
+    # Helper function to get sheet name for a test case (matching create_excel_export logic)
+    # Note: This generates the base name; actual sheet creation handles duplicates
+    def get_sheet_name_for_test_case(tc):
+        project_name = tc.get('_project_name', '')
+        if project_name:
+            clean_project_name = project_name.replace('/', '_').replace('\\', '_').replace('?', '_').replace('*', '_').replace('[', '_').replace(']', '_').replace(':', '_')
+            sheet_name = f"{clean_project_name}_{tc['test_number']}"
+        else:
+            sheet_name = f"{tc['test_number']}"
+        
+        if len(sheet_name) > 31:
+            if project_name and len(clean_project_name) < 15:
+                max_tc_len = 31 - len(clean_project_name) - 1
+                tc_part = tc['test_number'][:max_tc_len]
+                sheet_name = f"{clean_project_name}_{tc_part}"
+            else:
+                sheet_name = sheet_name[:28] + "..."
+        
+        return sheet_name
+    
+    # Helper function to write a test case row
+    def write_test_case_row(row_num, test_case):
+        # Column C: Test Case ID (with hyperlink to test case sheet)
+        test_case_id_cell = sheet.cell(row=row_num, column=3)
         test_case_id_cell.value = test_case['test_number']
         test_case_id_cell.border = thin_border
         test_case_id_cell.fill = white_fill
         
         # Create hyperlink to test case sheet
-        sheet_name = f"{test_case['test_number']}"
-        if len(sheet_name) > 31:
-            sheet_name = sheet_name[:28] + "..."
-        # Handle duplicate sheet names (same logic as in create_excel_export)
-        base_name = sheet_name
-        counter = 1
-        original_name = sheet_name
-        while sheet_name in [s.title for s in sheet.parent.worksheets if s != sheet]:
-            sheet_name = f"{base_name[:26]}_{counter}"
-            counter += 1
-        # Use original name for hyperlink (Excel will handle it)
+        sheet_name = get_sheet_name_for_test_case(test_case)
         test_case_id_cell.hyperlink = f"#{sheet_name}!A1"
-        test_case_id_cell.font = Font(color="0563C1", underline="single")  # Blue, underlined
+        test_case_id_cell.font = Font(color="0563C1", underline="single")
         
-        # Column D: Test Case Name (Description) - shifted
-        desc_cell = sheet.cell(row=row_num, column=4)  # Column D instead of C
+        # Column D: Test Case Name (Description)
+        desc_cell = sheet.cell(row=row_num, column=4)
         desc_cell.value = test_case['description']
         desc_cell.border = thin_border
         desc_cell.alignment = Alignment(wrap_text=True, vertical="top")
         desc_cell.fill = white_fill
         
-        # Column E: Execution Status (default to "Completed" or leave empty) - shifted
-        status_cell = sheet.cell(row=row_num, column=5)  # Column E instead of D
+        # Column E: Execution Status
+        status_cell = sheet.cell(row=row_num, column=5)
         status_cell.value = "Completed"
         status_cell.border = thin_border
         status_cell.alignment = Alignment(horizontal="center")
         status_cell.fill = white_fill
         
-        # Column F: Outcome (default to "Pass" or leave empty) - shifted
-        outcome_cell = sheet.cell(row=row_num, column=6)  # Column F instead of E
+        # Column F: Outcome
+        outcome_cell = sheet.cell(row=row_num, column=6)
         outcome_cell.value = "Pass"
         outcome_cell.border = thin_border
         outcome_cell.alignment = Alignment(horizontal="center")
         outcome_cell.fill = white_fill
+    
+    # Write grouped projects first
+    if grouped_by_project:
+        for project_id, project_tcs in grouped_by_project.items():
+            project = projects_info.get(project_id)
+            project_name = project['name'] if project else f"Project {project_id}"
+            
+            # Add separator row before project (except for first project)
+            if current_row > 6:
+                for col in range(2, 8):  # Columns B to G
+                    cell = sheet.cell(row=current_row, column=col)
+                    cell.fill = white_fill
+                    # No border on separator row - just white space
+                    cell.border = None
+                current_row += 1
+            
+            # Add project header row
+            project_header_cell = sheet.cell(row=current_row, column=3)
+            project_header_cell.value = f"Project: {project_name}"
+            project_header_cell.font = project_header_font
+            project_header_cell.fill = project_header_fill
+            project_header_cell.alignment = Alignment(horizontal="left", vertical="center")
+            # Merge cells for project header (columns C to F)
+            sheet.merge_cells(f'C{current_row}:F{current_row}')
+            # Apply borders to merged cells
+            for col in range(3, 7):
+                cell = sheet.cell(row=current_row, column=col)
+                cell.border = thin_border
+            # Left and right padding
+            for col in [2, 7]:
+                cell = sheet.cell(row=current_row, column=col)
+                cell.fill = white_fill
+                cell.border = thin_border
+            current_row += 1
+            
+            # Write test cases for this project
+            for test_case in project_tcs:
+                write_test_case_row(current_row, test_case)
+                current_row += 1
+    
+    # Write ungrouped test cases (if any)
+    if ungrouped_test_cases:
+        # Add separator if we had grouped projects
+        if grouped_by_project:
+            for col in range(2, 8):
+                cell = sheet.cell(row=current_row, column=col)
+                cell.fill = white_fill
+                # No border on separator row - just white space
+                cell.border = None
+            current_row += 1
         
-        last_data_row = row_num
+        # Add header for ungrouped
+        ungrouped_header_cell = sheet.cell(row=current_row, column=3)
+        ungrouped_header_cell.value = "Unassigned Test Cases"
+        ungrouped_header_cell.font = project_header_font
+        ungrouped_header_cell.fill = project_header_fill
+        ungrouped_header_cell.alignment = Alignment(horizontal="left", vertical="center")
+        sheet.merge_cells(f'C{current_row}:F{current_row}')
+        for col in range(3, 7):
+            cell = sheet.cell(row=current_row, column=col)
+            cell.border = thin_border
+        for col in [2, 7]:
+            cell = sheet.cell(row=current_row, column=col)
+            cell.fill = white_fill
+            cell.border = thin_border
+        current_row += 1
+        
+        # Write ungrouped test cases
+        for test_case in ungrouped_test_cases:
+            write_test_case_row(current_row, test_case)
+            current_row += 1
+    
+    # If no grouping, write all test cases normally
+    if not grouped_by_project and not ungrouped_test_cases:
+        for test_case in test_cases:
+            write_test_case_row(current_row, test_case)
+            current_row += 1
+    
+    last_data_row = current_row - 1
     
     # Apply thick black border around the entire box
     # Box spans from row 2 (padding top) to last_data_row + 1 (padding bottom), columns B to G

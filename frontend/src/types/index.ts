@@ -100,6 +100,7 @@ export interface ReorderStepRequest {
 }
 
 export interface ExportRequest {
-  test_case_ids: number[];
+  test_case_ids?: number[];
+  project_ids?: number[];
 }
 

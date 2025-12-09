@@ -22,17 +22,18 @@ router = APIRouter(prefix="/api", tags=["export"])
 @router.post("/export")
 async def export_test_cases(export_request: ExportRequest):
     """
-    Export selected test cases to Excel.
+    Export selected test cases or projects to Excel.
     
     Args:
-        export_request: Request containing list of test case IDs to export
+        export_request: Request containing list of test case IDs or project IDs to export
         
     Returns:
         Excel file download
     """
     try:
-        if not export_request.test_case_ids:
-            raise HTTPException(status_code=400, detail="No test case IDs provided")
+        # Validate that at least one of test_case_ids or project_ids is provided
+        if not export_request.test_case_ids and not export_request.project_ids:
+            raise HTTPException(status_code=400, detail="No test case IDs or project IDs provided")
         
         # Create temporary file for Excel export
         with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp_file:
@@ -42,7 +43,8 @@ async def export_test_cases(export_request: ExportRequest):
             # Generate Excel file
             excel_path = create_excel_export(
                 output_path=tmp_path,
-                selected_test_case_ids=export_request.test_case_ids
+                selected_test_case_ids=export_request.test_case_ids,
+                selected_project_ids=export_request.project_ids
             )
             
             if not excel_path or not os.path.exists(excel_path):

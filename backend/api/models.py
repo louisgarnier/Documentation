@@ -102,7 +102,8 @@ class ScreenshotResponse(BaseModel):
 # Export Models
 class ExportRequest(BaseModel):
     """Model for export request."""
-    test_case_ids: List[int]
+    test_case_ids: Optional[List[int]] = None
+    project_ids: Optional[List[int]] = None
 
 
 # Load Step Models
