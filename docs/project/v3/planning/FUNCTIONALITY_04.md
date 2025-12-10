@@ -27,52 +27,54 @@ Add drag-and-drop functionality to reorder test cases within a project, similar 
 
 ## Implementation Details
 
-### Step 1: Database Schema Update
-- [ ] Add `display_order` column to `test_cases` table
+### Step 1: Database Schema Update ✅
+- [x] Add `display_order` column to `test_cases` table
   - Type: INTEGER
   - Default: NULL (or auto-increment based on creation order)
   - Migration: Add column to existing table
   - Set initial values: assign order based on current `created_at` or `id`
 
-### Step 2: Backend API Updates
-- [ ] Update `TestCaseResponse` model to include `display_order` field
-- [ ] Update `get_all_test_cases` to order by `display_order` (with fallback to `created_at`)
-- [ ] Create `reorder_test_cases` function in `shared/models.py`
+### Step 2: Backend API Updates ✅
+- [x] Update `TestCaseResponse` model to include `display_order` field
+- [x] Update `get_all_test_cases` to order by `display_order` (with fallback to `created_at`)
+- [x] Create `reorder_test_cases` function in `shared/models.py`
   - Similar to `reorder_steps` function
   - Takes project_id and list of test case IDs in desired order
   - Updates `display_order` for each test case
-- [ ] Add endpoint `POST /api/projects/{project_id}/test-cases/reorder`
+- [x] Add endpoint `POST /api/projects/{project_id}/test-cases/reorder`
   - Accepts list of test case IDs in new order
   - Updates display_order for all test cases in the project
 
-### Step 3: Frontend Types & API Client
-- [ ] Update `TestCase` interface to include `display_order?: number | null`
-- [ ] Add `reorderTestCases` method to `projectsAPI` or `testCasesAPI`
+### Step 3: Frontend Types & API Client ✅
+- [x] Update `TestCase` interface to include `display_order?: number | null`
+- [x] Add `reorderTestCases` method to `projectsAPI` or `testCasesAPI`
   - Takes project_id and array of test case IDs in new order
 
-### Step 4: Frontend - Sortable Test Case Component
-- [ ] Create `SortableTestCaseItem.tsx` component (similar to `SortableStepCard.tsx`)
+### Step 4: Frontend - Sortable Test Case Component ✅
+- [x] Create `SortableTestCaseItem.tsx` component (similar to `SortableStepCard.tsx`)
   - Wrap existing `TestCaseItem` with drag-and-drop functionality
   - Use `@dnd-kit/sortable` (already installed)
-  - Add drag handle visual indicator
+  - Add drag handle visual indicator (vertical dots ⋮)
   - Handle drag state (opacity, cursor changes)
 
-### Step 5: Frontend - Project Detail Page Integration
-- [ ] Update `TestCaseList` component to use `DndContext` and `SortableContext`
+### Step 5: Frontend - Project Detail Page Integration ✅
+- [x] Update `TestCaseList` component to use `DndContext` and `SortableContext`
   - Similar to how `TestCaseDetail` handles step reordering
   - Wrap test case items in sortable context
-- [ ] Implement `handleDragEnd` function
+- [x] Implement `handleDragEnd` function
   - Calculate new order based on drag position
   - Call API to reorder test cases
   - Update local state optimistically
   - Handle errors and rollback if needed
-- [ ] Add loading state during reorder operation
-- [ ] Ensure test cases are displayed in `display_order` (with fallback)
+- [x] Add loading state during reorder operation
+- [x] Ensure test cases are displayed in `display_order` (with fallback)
+- [x] Add `handleReorderTestCases` function in project detail page
 
-### Step 6: Initial Order Assignment (Migration)
-- [ ] When loading test cases, if `display_order` is NULL, assign based on current order
-- [ ] Or: Migration script to set initial `display_order` for all existing test cases
-- [ ] Ensure new test cases get appropriate `display_order` when created
+### Step 6: Initial Order Assignment (Migration) ✅
+- [x] Migration script to set initial `display_order` for all existing test cases
+  - Sets display_order based on created_at, grouped by project_id
+- [x] Ensure new test cases get appropriate `display_order` when created
+  - New test cases get next display_order in their project
 
 ## Testing Checklist
 
@@ -145,5 +147,5 @@ Add drag-and-drop functionality to reorder test cases within a project, similar 
 - **Consistent UX**: Same interaction pattern as step reordering
 
 ## Status
-⏳ **Planned** - Ready for implementation
+✅ **Implemented** - All steps complete, ready for testing
 

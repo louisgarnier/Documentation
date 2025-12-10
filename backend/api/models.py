@@ -30,6 +30,7 @@ class TestCaseResponse(TestCaseBase):
     """Model for test case response."""
     id: int
     project_id: Optional[int] = None
+    display_order: Optional[int] = None
     created_at: str
 
     class Config:
@@ -45,6 +46,11 @@ class TestCaseDuplicateRequest(BaseModel):
 class TestCaseMoveRequest(BaseModel):
     """Model for moving a test case to another project."""
     target_project_id: Optional[int] = None
+
+
+class TestCaseReorderRequest(BaseModel):
+    """Model for reordering test cases within a project."""
+    test_case_ids: List[int]
 
 
 # Test Step Models

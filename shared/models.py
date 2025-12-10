@@ -49,6 +49,7 @@ def init_database():
             test_number TEXT NOT NULL UNIQUE,
             description TEXT NOT NULL,
             project_id INTEGER,
+            display_order INTEGER,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL
         )
@@ -87,6 +88,27 @@ def init_database():
     except sqlite3.OperationalError as e:
         # If something goes wrong, continue (migration will happen on next run)
         print(f"Migration note: {e}")
+        pass
+    
+    # Migration: Add display_order column to existing test_cases table if it doesn't exist
+    try:
+        cursor.execute("ALTER TABLE test_cases ADD COLUMN display_order INTEGER")
+        # Set initial display_order values based on created_at, grouped by project_id
+        # This ensures each project has its own ordering starting from 1
+        cursor.execute("""
+            UPDATE test_cases
+            SET display_order = (
+                SELECT COUNT(*) + 1
+                FROM test_cases t2
+                WHERE t2.project_id = test_cases.project_id
+                  AND (t2.created_at < test_cases.created_at
+                       OR (t2.created_at = test_cases.created_at AND t2.id < test_cases.id))
+            )
+            WHERE display_order IS NULL
+        """)
+        print("Migration: Added display_order column and set initial values")
+    except sqlite3.OperationalError:
+        # Column already exists, ignore
         pass
     
     # Migration: Change UNIQUE constraint from test_number to (project_id, test_number)
@@ -128,6 +150,7 @@ def init_database():
                         test_number TEXT NOT NULL,
                         description TEXT NOT NULL,
                         project_id INTEGER,
+                        display_order INTEGER,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL,
                         UNIQUE(project_id, test_number)
@@ -136,8 +159,8 @@ def init_database():
                 
                 # Copy data from old table
                 cursor.execute("""
-                    INSERT INTO test_cases_new (id, test_number, description, project_id, created_at)
-                    SELECT id, test_number, description, project_id, created_at
+                    INSERT INTO test_cases_new (id, test_number, description, project_id, display_order, created_at)
+                    SELECT id, test_number, description, project_id, display_order, created_at
                     FROM test_cases
                 """)
                 
@@ -215,10 +238,22 @@ def create_test_case(test_number: str, description: str, project_id: Optional[in
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
+        # Calculate display_order: next number in the project (or 1 if first)
+        if project_id is not None:
+            cursor.execute("""
+                SELECT COALESCE(MAX(display_order), 0) + 1 
+                FROM test_cases 
+                WHERE project_id = ?
+            """, (project_id,))
+            result = cursor.fetchone()
+            display_order = result[0] if result else 1
+        else:
+            display_order = None
+        
         cursor.execute("""
-            INSERT INTO test_cases (test_number, description, project_id)
-            VALUES (?, ?, ?)
-        """, (test_number, description, project_id))
+            INSERT INTO test_cases (test_number, description, project_id, display_order)
+            VALUES (?, ?, ?, ?)
+        """, (test_number, description, project_id, display_order))
         test_case_id = cursor.lastrowid
         conn.commit()
         return test_case_id
@@ -233,15 +268,31 @@ def create_test_case(test_number: str, description: str, project_id: Optional[in
 
 
 def get_all_test_cases(project_id: Optional[int] = None) -> List[Dict]:
-    """Get all test cases, optionally filtered by project_id."""
+    """Get all test cases, optionally filtered by project_id, ordered by display_order."""
     conn = get_db_connection()
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
     if project_id is not None:
-        cursor.execute("SELECT * FROM test_cases WHERE project_id = ? ORDER BY created_at DESC", (project_id,))
+        # Order by display_order (NULL values last), then by created_at as fallback
+        cursor.execute("""
+            SELECT * FROM test_cases 
+            WHERE project_id = ? 
+            ORDER BY 
+                CASE WHEN display_order IS NULL THEN 1 ELSE 0 END,
+                display_order ASC,
+                created_at ASC
+        """, (project_id,))
     else:
-        cursor.execute("SELECT * FROM test_cases ORDER BY created_at DESC")
+        # Order by project_id, then display_order within each project
+        cursor.execute("""
+            SELECT * FROM test_cases 
+            ORDER BY 
+                project_id,
+                CASE WHEN display_order IS NULL THEN 1 ELSE 0 END,
+                display_order ASC,
+                created_at ASC
+        """)
     
     rows = cursor.fetchall()
     conn.close()
@@ -615,6 +666,63 @@ def reorder_steps(test_case_id: int, step_order: List[int]) -> bool:
         success = True
     except Exception as e:
         conn.rollback()
+        success = False
+    finally:
+        conn.close()
+    
+    return success
+
+
+def reorder_test_cases(project_id: int, test_case_order: List[int]) -> bool:
+    """
+    Reorder test cases within a project by providing a list of test case IDs in the desired order.
+    Display order will be reassigned sequentially starting from 1.
+    
+    Args:
+        project_id: The project ID
+        test_case_order: List of test case IDs in the desired order
+    
+    Returns:
+        True if successful, False otherwise
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    try:
+        # Verify all test cases belong to this project
+        placeholders = ','.join(['?'] * len(test_case_order))
+        cursor.execute(f"""
+            SELECT id FROM test_cases 
+            WHERE id IN ({placeholders}) AND project_id = ?
+        """, test_case_order + [project_id])
+        valid_ids = {row[0] for row in cursor.fetchall()}
+        
+        if len(valid_ids) != len(test_case_order):
+            # Some test cases don't belong to this project
+            return False
+        
+        # First, set all display_order values to temporary values to avoid conflicts
+        temp_start = 10000
+        for idx, test_case_id in enumerate(test_case_order):
+            cursor.execute("""
+                UPDATE test_cases
+                SET display_order = ?
+                WHERE id = ? AND project_id = ?
+            """, (temp_start + idx, test_case_id, project_id))
+        
+        # Now assign the correct sequential display_order values
+        for idx, test_case_id in enumerate(test_case_order, start=1):
+            cursor.execute("""
+                UPDATE test_cases
+                SET display_order = ?
+                WHERE id = ? AND project_id = ?
+            """, (idx, test_case_id, project_id))
+        
+        conn.commit()
+        success = True
+    except Exception as e:
+        conn.rollback()
+        print(f"Error reordering test cases: {e}")
         success = False
     finally:
         conn.close()

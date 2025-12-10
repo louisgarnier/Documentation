@@ -110,6 +110,16 @@ export const projectsAPI = {
       method: 'DELETE',
     });
   },
+
+  /**
+   * Reorder test cases within a project
+   */
+  reorderTestCases: async (projectId: number, testCaseIds: number[]): Promise<void> => {
+    return fetchAPI<void>(`/api/projects/${projectId}/test-cases/reorder`, {
+      method: 'POST',
+      body: JSON.stringify({ test_case_ids: testCaseIds }),
+    });
+  },
 };
 
 /**

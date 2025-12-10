@@ -22,6 +22,7 @@ export default function ProjectDetailPage() {
   const [editingProject, setEditingProject] = useState(false);
   const [allProjects, setAllProjects] = useState<Project[]>([]);
   const [exporting, setExporting] = useState(false);
+  const [reordering, setReordering] = useState(false);
 
   useEffect(() => {
     if (projectId) {
@@ -170,6 +171,23 @@ export default function ProjectDetailPage() {
 
   const handleCreateTestCase = () => {
     router.push(`/test-case/new?project_id=${projectId}`);
+  };
+
+  const handleReorderTestCases = async (testCaseIds: number[]) => {
+    try {
+      setReordering(true);
+      setError(null);
+      
+      await projectsAPI.reorderTestCases(projectId, testCaseIds);
+      
+      // Reload test cases to get updated order
+      await loadTestCases();
+    } catch (err) {
+      console.error('Error reordering test cases:', err);
+      setError(err instanceof Error ? err.message : 'Failed to reorder test cases');
+    } finally {
+      setReordering(false);
+    }
   };
 
   const handleExportProject = async () => {
@@ -323,9 +341,11 @@ export default function ProjectDetailPage() {
             onViewDetail={handleViewDetail}
             onDuplicate={handleDuplicateTestCase}
             onMove={handleMoveTestCase}
+            onReorder={handleReorderTestCases}
             currentProjectId={projectId}
             allProjects={allProjects}
             onRefreshProjects={loadAllProjects}
+            reordering={reordering}
           />
         )}
       </main>

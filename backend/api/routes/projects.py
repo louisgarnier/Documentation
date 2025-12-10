@@ -17,9 +17,10 @@ from shared.models import (
     create_project as create_project_db,
     update_project as update_project_db,
     delete_project as delete_project_db,
-    get_test_cases_by_project
+    get_test_cases_by_project,
+    reorder_test_cases as reorder_test_cases_db
 )
-from api.models import ProjectCreate, ProjectUpdate, ProjectResponse, TestCaseResponse
+from api.models import ProjectCreate, ProjectUpdate, ProjectResponse, TestCaseResponse, TestCaseReorderRequest
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -189,4 +190,38 @@ async def delete_project(project_id: int, move_to_project_id: Optional[int] = Qu
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting project: {str(e)}")
+
+
+@router.post("/{project_id}/test-cases/reorder", response_model=dict)
+async def reorder_test_cases(project_id: int, request: TestCaseReorderRequest):
+    """
+    Reorder test cases within a project.
+    
+    Args:
+        project_id: The ID of the project
+        request: Request containing list of test case IDs in the desired order
+        
+    Returns:
+        Success message
+    """
+    try:
+        # Verify project exists
+        project = get_project_by_id(project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail=f"Project {project_id} not found")
+        
+        # Validate request
+        if not request.test_case_ids:
+            raise HTTPException(status_code=400, detail="test_case_ids list cannot be empty")
+        
+        # Reorder test cases
+        success = reorder_test_cases_db(project_id, request.test_case_ids)
+        if not success:
+            raise HTTPException(status_code=400, detail="Failed to reorder test cases")
+        
+        return {"message": "Test cases reordered successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error reordering test cases: {str(e)}")
 

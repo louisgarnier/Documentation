@@ -17,6 +17,7 @@ export interface TestCase {
   test_number: string;
   description: string;
   project_id?: number | null;
+  display_order?: number | null;
   created_at: string;
 }
 
