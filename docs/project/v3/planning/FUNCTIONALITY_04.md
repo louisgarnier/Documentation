@@ -79,27 +79,27 @@ Add drag-and-drop functionality to reorder test cases within a project, similar 
 ## Testing Checklist
 
 ### Step 1: Database Schema
-- [ ] Run database initialization
-- [ ] Verify `display_order` column exists in `test_cases` table
-- [ ] Verify existing test cases have `display_order` values (or NULL)
-- [ ] Test creating new test case (should get appropriate display_order)
+- [x] Run database initialization
+- [x] Verify `display_order` column exists in `test_cases` table
+- [x] Verify existing test cases have `display_order` values (or NULL)
+- [x] Test creating new test case (should get appropriate display_order)
 
 ### Step 2: Backend API
-- [ ] Test reordering test cases via API endpoint
-- [ ] Test with test cases in same project
+- [x] Test reordering test cases via API endpoint
+- [x] Test with test cases in same project
+- [x] Test getting test cases ordered by display_order
 - [ ] Test with test cases in different projects (should not affect each other)
-- [ ] Test getting test cases ordered by display_order
 - [ ] Test edge cases (single test case, empty project, etc.)
 
 ### Step 3: Frontend - Drag and Drop
-- [ ] Start frontend and backend
-- [ ] Navigate to a project detail page with multiple test cases
-- [ ] Verify drag handle appears on test case cards
-- [ ] Test dragging a test case up (move earlier in list)
-- [ ] Test dragging a test case down (move later in list)
-- [ ] Verify visual feedback during drag (opacity, cursor)
-- [ ] Verify order persists after page refresh
-- [ ] Test reordering multiple times
+- [x] Start frontend and backend
+- [x] Navigate to a project detail page with multiple test cases
+- [x] Verify drag handle appears on test case cards (vertical dots ⋮)
+- [x] Test dragging a test case up (move earlier in list)
+- [x] Test dragging a test case down (move later in list)
+- [x] Verify visual feedback during drag (opacity, cursor)
+- [x] Verify order persists after page refresh
+- [x] Test reordering multiple times
 - [ ] Test error handling (stop backend, try to reorder)
 
 ### Step 4: Cross-Project Isolation
@@ -109,13 +109,13 @@ Add drag-and-drop functionality to reorder test cases within a project, similar 
 - [ ] Verify each project maintains its own order
 
 ### Step 5: New Test Case Creation
-- [ ] Create a new test case in a project
-- [ ] Verify it appears at the end (or appropriate position)
-- [ ] Verify it can be reordered like existing test cases
+- [x] Create a new test case in a project
+- [x] Verify it appears at the end (or appropriate position)
+- [x] Verify it can be reordered like existing test cases
 
 ### Integration Tests
-- [ ] Reorder test cases → refresh page → verify order persists
-- [ ] Reorder test cases → navigate away → come back → verify order
+- [x] Reorder test cases → refresh page → verify order persists
+- [x] Reorder test cases → navigate away → come back → verify order
 - [ ] Reorder test cases → export to Excel → verify order in export (if applicable)
 - [ ] Test with projects that have many test cases (10+)
 - [ ] Test rapid reordering (multiple drags in quick succession)
